@@ -1,0 +1,75 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  /* Paper & ink editorial palette */
+  --color-paper-50: #fdfbf7;
+  --color-paper-100: #f7f3eb;
+  --color-paper-200: #efe8da;
+  --color-paper-300: #e2d7c2;
+
+  --color-ink-950: #17130e;
+  --color-ink-900: #1e1913;
+  --color-ink-800: #2a2319;
+  --color-ink-700: #3a3126;
+  --color-ink-400: #8a7d6a;
+  --color-ink-300: #b8ab93;
+
+  /* Rust / brass accent */
+  --color-brass-300: #eec176;
+  --color-brass-400: #d9902d;
+  --color-brass-500: #c97a1f;
+  --color-brass-600: #a45e16;
+
+  /* Deep forest secondary */
+  --color-forest-400: #5f7d63;
+  --color-forest-500: #43614b;
+  --color-forest-600: #2e4534;
+
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display: "Fraunces Variable", Georgia, "Times New Roman", serif;
+}
+
+/* Fix a typo guard — fallback if variable token didn't resolve */
+@theme {
+  --color-ink-300: #b8ab93;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-paper-100 text-ink-900 antialiased;
+  font-family: var(--font-sans);
+}
+
+.dark body {
+  @apply bg-ink-950 text-paper-100;
+}
+
+::selection {
+  background-color: color-mix(in srgb, var(--color-brass-400) 40%, transparent);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-paper-300 rounded-full;
+}
+.dark ::-webkit-scrollbar-thumb {
+  @apply bg-ink-700;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Utility for the editorial serif display */
+.font-display {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+}
