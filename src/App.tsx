@@ -52,7 +52,7 @@ export default function App() {
   }, [dark])
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col pb-24 sm:pb-0">
       <Header dark={dark} onToggleDark={() => setDark(!dark)} route={route} />
       <AnimatePresence mode="wait">
         <motion.main
@@ -61,7 +61,7 @@ export default function App() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -10 }}
           transition={{ duration: 0.25, ease: 'easeOut' }}
-          className="flex-1 pb-24 sm:pb-0"
+          className="flex-1"
         >
           <Page>
             {Tool ? <Tool /> : isAbout ? <About /> : <Home />}

@@ -72,8 +72,10 @@ export default function Home() {
       <section className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
         {TOOL_LIST.map((tool, i) => {
           const Comp = ICONS[tool.id]
-          // 5 tools: on lg (3 cols) center the final pair; on mobile/tablet it's a clean 2-col flow
+          // 5 tools: on lg (3 cols) center the final pair; on mobile/tablet (2 cols)
+          // the lone 5th card spans both columns so it never reads as an orphan.
           const centerStart = i === TOOL_LIST.length - 2 ? ' lg:col-start-2' : ''
+          const lastFull = i === TOOL_LIST.length - 1 ? ' col-span-2 lg:col-span-1' : ''
           return (
             <motion.a
               key={tool.id}
@@ -83,7 +85,8 @@ export default function Home() {
               transition={{ duration: 0.35, delay: i * 0.05 }}
               className={
                 'group rounded-2xl border border-paper-300 dark:border-ink-700 bg-paper-50/80 dark:bg-ink-800/60 p-4 sm:p-6 shadow-soft hover:border-brass-400 hover:shadow-lg hover:shadow-brass-400/10 transition-all' +
-                centerStart
+                centerStart +
+                lastFull
               }
             >
               <div className="flex items-center justify-between mb-6 sm:mb-10">
