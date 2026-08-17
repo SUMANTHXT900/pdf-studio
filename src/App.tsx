@@ -61,7 +61,7 @@ export default function App() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -10 }}
           transition={{ duration: 0.25, ease: 'easeOut' }}
-          className="flex-1"
+          className="flex-1 pb-24 sm:pb-0"
         >
           <Page>
             {Tool ? <Tool /> : isAbout ? <About /> : <Home />}
@@ -69,6 +69,7 @@ export default function App() {
         </motion.main>
       </AnimatePresence>
       <Footer />
+      <MobileNav route={route} />
     </div>
   )
 }
@@ -80,7 +81,7 @@ function Page({ children }: { children: ReactNode }) {
 function Header({ dark, onToggleDark, route }: { dark: boolean; onToggleDark: () => void; route: string }) {
   const isHome = !route
   return (
-    <header className="sticky top-0 z-40 backdrop-blur-md bg-paper-100/80 dark:bg-ink-950/80 border-b border-paper-300/60 dark:border-ink-800/60">
+    <header className="sticky top-0 z-40 glass bg-paper-100/75 dark:bg-ink-950/75 border-b border-paper-300/60 dark:border-ink-800/60">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
         <a href="#/" className="flex items-center gap-2.5 group">
           <div className="w-9 h-9 rounded-lg bg-ink-900 dark:bg-paper-100 flex items-center justify-center shadow-sm">
@@ -144,6 +145,58 @@ export const TOOL_LIST: { id: ToolId; name: string; tagline: string }[] = [
   { id: 'rotate', name: 'Rotate', tagline: 'Fix page orientation' },
   { id: 'compress', name: 'Compress', tagline: 'Shrink file size' },
 ]
+
+function MobileNav({ route }: { route: string }) {
+  const active = route as ToolId
+  return (
+    <nav className="sm:hidden fixed bottom-0 inset-x-0 z-50 glass bg-paper-100/90 dark:bg-ink-950/90 border-t border-paper-300/60 dark:border-ink-800/60 pb-[env(safe-area-inset-bottom)]">
+      <div className="max-w-md mx-auto grid grid-cols-5">
+        {TOOL_LIST.map((t) => {
+          const isActive = active === t.id
+          return (
+            <a
+              key={t.id}
+              href={`#/${t.id}`}
+              className="flex flex-col items-center justify-center gap-1 py-2.5 text-[10px] font-medium transition-colors"
+            >
+              <span
+                className={
+                  'w-9 h-9 rounded-xl flex items-center justify-center transition-colors ' +
+                  (isActive
+                    ? 'bg-brass-400/15 text-brass-500'
+                    : 'text-ink-400 dark:text-ink-300')
+                }
+              >
+                {ICONS_MOBILE[t.id]}
+              </span>
+              <span className={isActive ? 'text-brass-600 dark:text-brass-400' : 'text-ink-400 dark:text-ink-300'}>
+                {t.name}
+              </span>
+            </a>
+          )
+        })}
+      </div>
+    </nav>
+  )
+}
+
+const ICONS_MOBILE: Record<ToolId, React.ReactNode> = {
+  merge: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M3 12h12M3 18h6" /></svg>
+  ),
+  split: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v18" /><circle cx="6" cy="6" r="3" /><circle cx="18" cy="6" r="3" /></svg>
+  ),
+  rearrange: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 8l6-5-6 5zm0 0 6 5M21 16l-6 5 6-5zm0 0-6-5" /></svg>
+  ),
+  rotate: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.5 0 4.75 1 6.4 2.6L21 8" /><path d="M21 3v5h-5" /></svg>
+  ),
+  compress: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2M8 3l6 6m0 0V3H8m0 0v6h6" /></svg>
+  ),
+}
 
 function MoonIcon() {
   return (

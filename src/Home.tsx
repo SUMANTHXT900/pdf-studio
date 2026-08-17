@@ -34,37 +34,45 @@ const ICONS: Record<string, React.ReactNode> = {
 
 export default function Home() {
   return (
-    <div className="py-10">
-      <section className="text-center max-w-2xl mx-auto mb-14">
+    <div className="py-8 sm:py-12">
+      <section className="text-center max-w-2xl mx-auto mb-12 sm:mb-16 px-1">
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
         >
-          <p className="font-display italic text-brass-500 text-sm mb-4">Every tool, zero uploads</p>
+          <span className="inline-flex items-center gap-2 rounded-full border border-paper-300 dark:border-ink-700 bg-paper-50/70 dark:bg-ink-800/60 px-3.5 py-1.5 text-xs font-medium text-brass-600 dark:text-brass-400 mb-5">
+            <span className="w-1.5 h-1.5 rounded-full bg-forest-500 animate-pulse" />
+            Every tool, zero uploads
+          </span>
+
           <h1 className="font-display text-4xl sm:text-6xl font-semibold tracking-tight text-ink-900 dark:text-paper-100 leading-[1.05]">
             PDF tools that
             <br />
-            <span className="text-ink-600 dark:text-ink-300">stay on your device</span>
+            <span className="bg-gradient-to-r from-brass-500 via-brass-400 to-forest-500 bg-clip-text text-transparent">
+              stay on your device
+            </span>
           </h1>
-          <p className="mt-5 text-base sm:text-lg text-ink-400 dark:text-ink-300 leading-relaxed">
-            Merge, split, rearrange, compress and convert PDFs — all processed locally in your browser.
+
+          <p className="mt-5 text-base sm:text-lg text-ink-400 dark:text-ink-300 leading-relaxed max-w-xl mx-auto">
+            Merge, split, rearrange, rotate and compress PDFs — all processed locally in your browser.
             Your documents never touch a server.
           </p>
+
           <div className="mt-6 flex items-center justify-center gap-2 text-xs text-forest-500 dark:text-forest-400">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
               <path d="M7 11V7a5 5 0 0 1 10 0v4" />
             </svg>
-            Works offline • Files never leave your device • Free forever
+            Works offline · Files never leave your device · Free forever
           </div>
         </motion.div>
       </section>
 
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <section className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
         {TOOL_LIST.map((tool, i) => {
           const Comp = ICONS[tool.id]
-          // 5 tools in a 3-col grid: center the bottom pair (items 3 & 4, 0-indexed)
+          // 5 tools: on lg (3 cols) center the final pair; on mobile/tablet it's a clean 2-col flow
           const centerStart = i === TOOL_LIST.length - 2 ? ' lg:col-start-2' : ''
           return (
             <motion.a
@@ -74,11 +82,11 @@ export default function Home() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.35, delay: i * 0.05 }}
               className={
-                "group rounded-2xl border border-paper-300 dark:border-ink-700 bg-paper-50 dark:bg-ink-800/60 p-6 hover:border-brass-400 hover:shadow-lg hover:shadow-brass-400/5 transition-all" +
+                'group rounded-2xl border border-paper-300 dark:border-ink-700 bg-paper-50/80 dark:bg-ink-800/60 p-4 sm:p-6 shadow-soft hover:border-brass-400 hover:shadow-lg hover:shadow-brass-400/10 transition-all' +
                 centerStart
               }
             >
-              <div className="flex items-center justify-between mb-10">
+              <div className="flex items-center justify-between mb-6 sm:mb-10">
                 <div className="w-11 h-11 rounded-xl bg-paper-200 dark:bg-ink-700 flex items-center justify-center text-ink-700 dark:text-paper-100 group-hover:bg-brass-400/15 group-hover:text-brass-500 transition-colors">
                   {Comp}
                 </div>
@@ -86,8 +94,8 @@ export default function Home() {
                   <path d="M5 12h14M13 6l6 6-6 6" />
                 </svg>
               </div>
-              <h3 className="font-display text-lg font-semibold text-ink-900 dark:text-paper-100">{tool.name}</h3>
-              <p className="text-sm text-ink-400 dark:text-ink-300 mt-1">{tool.tagline}</p>
+              <h3 className="font-display text-base sm:text-lg font-semibold text-ink-900 dark:text-paper-100">{tool.name}</h3>
+              <p className="text-xs sm:text-sm text-ink-400 dark:text-ink-300 mt-1 leading-snug">{tool.tagline}</p>
             </motion.a>
           )
         })}
