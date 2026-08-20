@@ -1,9 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo, memo, useCallback } from 'react'
 import { ToolHeading, DropZone, FileChip, Button, Spinner, Card } from '../components/ui'
 import { usePdfFiles } from '../hooks/usePdfFiles'
 import { usePageThumbs } from '../hooks/usePageThumbs'
 import { applyRotations, downloadBytes, stripExt } from '../lib/pdf'
-
 const ICON = (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <path d="M21 12a9 9 0 1 1-9-9c2.5 0 4.75 1 6.4 2.6L21 8" />
@@ -11,8 +10,40 @@ const ICON = (
   </svg>
 )
 
+const PAGE_LIMIT = 24
+
+const RotateTile = memo(function RotateTile({ src, idx, angle, onLeft, onRight }: { src: string; idx: number; angle: number; onLeft: () => void; onRight: () => void }) {
+  return (
+    <div className="flex flex-col items-center gap-2">
+      <div
+        className="w-full aspect-[3/4] rounded-lg overflow-hidden border-2 border-paper-300 dark:border-ink-700 bg-white relative"
+        style={{ transform: `rotate(${angle}deg)`, transition: 'transform .2s' }}
+      >
+        {src ? (
+          <img src={src} alt={`Page ${idx + 1}`} loading="lazy" decoding="async" className="w-full h-full object-scale-down" />
+        ) : (
+          <span className="absolute inset-0 flex items-center justify-center text-xs text-ink-400 animate-pulse">…</span>
+        )}
+      </div>
+      <div className="flex items-center gap-1">
+        <button
+          onClick={onLeft}
+          className="w-8 h-8 rounded-lg border border-paper-300 dark:border-ink-700 flex items-center justify-center text-sm hover:bg-paper-200 dark:hover:bg-ink-800 transition-colors"
+          aria-label="Rotate left"
+        >↺</button>
+        <span className="w-6 text-center text-xs font-medium text-ink-400">{idx + 1}</span>
+        <button
+          onClick={onRight}
+          className="w-8 h-8 rounded-lg border border-paper-300 dark:border-ink-700 flex items-center justify-center text-sm hover:bg-paper-200 dark:hover:bg-ink-800 transition-colors"
+          aria-label="Rotate right"
+        >↻</button>
+      </div>
+    </div>
+  )
+})
+
 export default function RotateTool() {
-  const { files, addFiles, remove, clear } = usePdfFiles()
+  const { files, addFiles, remove } = usePdfFiles()
   const file = files[0]
   const { thumbs, load, loading } = usePageThumbs()
 
@@ -20,27 +51,33 @@ export default function RotateTool() {
     if (file) load(file.data)
   }, [file, load])
 
-  // rotations: page index -> net +1 (clockwise) increments; allRot applies to every page
   const [rot, setRot] = useState<Record<number, number>>({})
   const [allRot, setAllRot] = useState(0)
   const [working, setWorking] = useState(false)
   const [done, setDone] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [showAll, setShowAll] = useState(false)
 
-  const spinOne = (pageIndex: number, delta: number) => {
+  const visibleIndices = useMemo(() => {
+    const n = thumbs.length
+    if (n <= 30 || showAll) return Array.from({ length: n }, (_, i) => i)
+    return Array.from({ length: PAGE_LIMIT }, (_, i) => i)
+  }, [thumbs.length, showAll])
+  const hiddenCount = thumbs.length - visibleIndices.length
+
+  const spinOne = useCallback((pageIndex: number, delta: number) => {
     setRot((r) => ({ ...r, [pageIndex]: (((r[pageIndex] || 0) + delta) % 4 + 4) % 4 }))
-  }
+  }, [])
 
-  const spinAll = (delta: number) => {
+  const spinAll = useCallback((delta: number) => {
     setAllRot((a) => (((a + delta) % 4) + 4) % 4)
-  }
+  }, [])
 
   const onDownload = async () => {
     if (!file) return
     setWorking(true)
     setError(null)
     try {
-      // bake any pending global rotation into the per-page map before applying
       let final = rot
       if (allRot !== 0 && thumbs.length > 0) {
         final = { ...rot }
@@ -87,38 +124,32 @@ export default function RotateTool() {
             <p className="text-xs text-brass-500 mb-3">＋{allRot * 90}° to every page — press “Apply all” to preview, or Download.</p>
           )}
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {thumbs.map((src, idx) => {
-              const angle = (rot[idx] || 0) * 90
-              return (
-                <div key={idx} className="flex flex-col items-center gap-2">
-                  <div
-                    className="w-full aspect-[3/4] rounded-lg overflow-hidden border-2 border-paper-300 dark:border-ink-700 bg-white relative"
-                    style={{ transform: `rotate(${angle}deg)`, transition: 'transform .2s' }}
-                  >
-                    {src ? (
-                      <img src={src} alt={`Page ${idx + 1}`} className="w-full h-full object-scale-down" />
-                    ) : (
-                      <span className="absolute inset-0 flex items-center justify-center text-xs text-ink-400 animate-pulse">…</span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => spinOne(idx, -1)}
-                      className="w-8 h-8 rounded-lg border border-paper-300 dark:border-ink-700 flex items-center justify-center text-sm hover:bg-paper-200 dark:hover:bg-ink-800 transition-colors"
-                      aria-label="Rotate left"
-                    >↺</button>
-                    <span className="w-6 text-center text-xs font-medium text-ink-400">{idx + 1}</span>
-                    <button
-                      onClick={() => spinOne(idx, 1)}
-                      className="w-8 h-8 rounded-lg border border-paper-300 dark:border-ink-700 flex items-center justify-center text-sm hover:bg-paper-200 dark:hover:bg-ink-800 transition-colors"
-                      aria-label="Rotate right"
-                    >↻</button>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+          {loading && <div className="flex items-center gap-2 text-sm text-ink-400"><Spinner /> Rendering previews…</div>}
+
+          {!loading && thumbs.length > 0 && (
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                {visibleIndices.map((idx) => {
+                  const angle = (rot[idx] || 0) * 90
+                  return (
+                    <RotateTile key={idx} src={thumbs[idx]} idx={idx} angle={angle} onLeft={() => spinOne(idx, -1)} onRight={() => spinOne(idx, 1)} />
+                  )
+                })}
+                {hiddenCount > 0 && (
+                  <button onClick={() => setShowAll(true)} className="rounded-lg border-2 border-dashed border-paper-300 dark:border-ink-700 flex flex-col items-center justify-center gap-1 aspect-[3/4] text-sm text-ink-500 hover:border-brass-400 hover:text-brass-600 transition-colors">
+                    <span className="text-lg">+{hiddenCount}</span>
+                    <span className="text-xs">Show all</span>
+                  </button>
+                )}
+              </div>
+              {thumbs.length > 30 && !showAll && (
+                <p className="text-xs text-ink-400 mt-3">Showing {PAGE_LIMIT} of {thumbs.length} pages — click “Show all” for the rest.</p>
+              )}
+              {showAll && thumbs.length > 30 && (
+                <button onClick={() => setShowAll(false)} className="mt-3 text-xs text-ink-400 hover:text-ink-700">Show less</button>
+              )}
+            </>
+          )}
 
           <div className="mt-8">
             <Button onClick={onDownload} disabled={working || thumbs.length === 0}>

@@ -1,9 +1,31 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo, memo, useCallback } from 'react'
 import { Reorder } from 'framer-motion'
 import { ToolHeading, DropZone, FileChip, Button, Spinner, Card } from '../components/ui'
 import { usePdfFiles } from '../hooks/usePdfFiles'
 import { usePageThumbs } from '../hooks/usePageThumbs'
 import { reorderPages } from '../lib/pdf'
+
+const PAGE_LIMIT = 24
+
+const RearrangeRow = memo(function RearrangeRow({ pageIdx, pos, thumb, onMoveUp, onMoveDown, onPreview, isFirst, isLast }: { pageIdx: number; pos: number; thumb: string; onMoveUp: () => void; onMoveDown: () => void; onPreview: () => void; isFirst: boolean; isLast: boolean }) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-paper-300 dark:border-ink-700 bg-paper-50 dark:bg-ink-800/60 px-3 py-2">
+      <span className="w-6 text-center text-xs font-mono text-ink-400">{pos + 1}</span>
+      <button onClick={onPreview} className="flex-1 flex items-center gap-3 text-left">
+        {thumb ? (
+          <img src={thumb} alt={`Page ${pageIdx + 1}`} loading="lazy" decoding="async" className="w-10 h-14 object-cover rounded border border-paper-300 dark:border-ink-700" />
+        ) : (
+          <div className="w-10 h-14 rounded bg-paper-200 dark:bg-ink-700 animate-pulse" />
+        )}
+        <span className="text-sm text-ink-700 dark:text-paper-100">Page {pageIdx + 1}</span>
+      </button>
+      <div className="flex flex-col">
+        <button onClick={onMoveUp} disabled={isFirst} className="px-1.5 py-0.5 text-ink-400 hover:text-brass-500 disabled:opacity-30" aria-label="Move up">↑</button>
+        <button onClick={onMoveDown} disabled={isLast} className="px-1.5 py-0.5 text-ink-400 hover:text-brass-500 disabled:opacity-30" aria-label="Move down">↓</button>
+      </div>
+    </div>
+  )
+})
 
 export default function RearrangeTool() {
   const { files, setFiles, addFiles, error, busy, setBusy, setError } = usePdfFiles()
@@ -11,10 +33,12 @@ export default function RearrangeTool() {
   const { thumbs, load, loading } = usePageThumbs()
   const [order, setOrder] = useState<number[]>([])
   const [result, setResult] = useState<string | null>(null)
-  const [viewer, setViewer] = useState<number | null>(null) // index in `order` being previewed
+  const [viewer, setViewer] = useState<number | null>(null)
+  const [showAll, setShowAll] = useState(false)
 
   useEffect(() => {
     setResult(null)
+    setShowAll(false)
     if (!file) { setOrder([]); return }
     let cancelled = false
     ;(async () => {
@@ -25,7 +49,13 @@ export default function RearrangeTool() {
     return () => { cancelled = true }
   }, [file, load])
 
-  async function handleRearrange() {
+  const visibleOrder = useMemo(() => {
+    if (order.length <= 30 || showAll) return order
+    return order.slice(0, PAGE_LIMIT)
+  }, [order, showAll])
+  const hiddenCount = order.length - visibleOrder.length
+
+  const handleRearrange = useCallback(async () => {
     if (!file) return
     setBusy(true); setError(null); setResult(null)
     try {
@@ -36,9 +66,9 @@ export default function RearrangeTool() {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Rearrange failed')
     } finally { setBusy(false) }
-  }
+  }, [file, order, setBusy, setError])
 
-  function move(idx: number, dir: -1 | 1) {
+  const move = useCallback((idx: number, dir: -1 | 1) => {
     setOrder((prev) => {
       const next = [...prev]
       const j = idx + dir
@@ -46,7 +76,7 @@ export default function RearrangeTool() {
       ;[next[idx], next[j]] = [next[j], next[idx]]
       return next
     })
-  }
+  }, [])
 
   return (
     <div className="py-6">
@@ -68,27 +98,29 @@ export default function RearrangeTool() {
             <Card>
               <p className="text-sm font-medium text-ink-700 dark:text-paper-100 mb-3">Drag, click to preview, or use arrows</p>
               <Reorder.Group axis="y" values={order} onReorder={setOrder} className="space-y-2">
-                {order.map((pageIdx, i) => (
-                  <Reorder.Item key={pageIdx} value={pageIdx} className="flex items-center gap-3 rounded-xl border border-paper-300 dark:border-ink-700 bg-paper-50 dark:bg-ink-800/60 px-3 py-2 cursor-grab active:cursor-grabbing">
-                    <span className="w-6 text-center text-xs font-mono text-ink-400">{i + 1}</span>
-                    <button
-                      onClick={() => setViewer(i)}
-                      className="flex-1 flex items-center gap-3 text-left"
-                    >
-                      {thumbs[pageIdx] ? (
-                        <img src={thumbs[pageIdx]} alt={`Page ${pageIdx + 1}`} className="w-10 h-14 object-cover rounded border border-paper-300 dark:border-ink-700" />
-                      ) : (
-                        <div className="w-10 h-14 rounded bg-paper-200 dark:bg-ink-700" />
-                      )}
-                      <span className="text-sm text-ink-700 dark:text-paper-100">Page {pageIdx + 1}</span>
-                    </button>
-                    <div className="flex flex-col">
-                      <button onClick={() => move(i, -1)} disabled={i === 0} className="px-1.5 py-0.5 text-ink-400 hover:text-brass-500 disabled:opacity-30" aria-label="Move up">↑</button>
-                      <button onClick={() => move(i, 1)} disabled={i === order.length - 1} className="px-1.5 py-0.5 text-ink-400 hover:text-brass-500 disabled:opacity-30" aria-label="Move down">↓</button>
-                    </div>
+                {visibleOrder.map((pageIdx, i) => (
+                  <Reorder.Item key={pageIdx} value={pageIdx} className="list-none">
+                    <RearrangeRow
+                      pageIdx={pageIdx}
+                      pos={i}
+                      thumb={thumbs[pageIdx]}
+                      onMoveUp={() => move(i, -1)}
+                      onMoveDown={() => move(i, 1)}
+                      onPreview={() => setViewer(i)}
+                      isFirst={i === 0}
+                      isLast={i === order.length - 1}
+                    />
                   </Reorder.Item>
                 ))}
               </Reorder.Group>
+              {hiddenCount > 0 && (
+                <button onClick={() => setShowAll(true)} className="mt-3 w-full rounded-xl border-2 border-dashed border-paper-300 dark:border-ink-700 py-3 text-sm text-ink-500 hover:border-brass-400 hover:text-brass-600 transition-colors">
+                  Show {hiddenCount} more pages
+                </button>
+              )}
+              {hiddenCount === 0 && order.length > 30 && showAll && (
+                <button onClick={() => setShowAll(false)} className="mt-3 text-xs text-ink-400 hover:text-ink-700">Show less</button>
+              )}
             </Card>
           )}
 
@@ -125,7 +157,7 @@ export default function RearrangeTool() {
               <button onClick={() => setViewer(null)} className="rounded-full bg-white/10 px-3 py-1 text-sm hover:bg-white/20">Close</button>
             </div>
             {thumbs[order[viewer]] && (
-              <img src={thumbs[order[viewer]]} alt={`Page ${order[viewer] + 1}`} className="w-full rounded-xl shadow-2xl bg-white" />
+              <img src={thumbs[order[viewer]]} alt={`Page ${order[viewer] + 1}`} loading="lazy" className="w-full rounded-xl shadow-2xl bg-white" />
             )}
           </div>
         </div>
@@ -133,7 +165,6 @@ export default function RearrangeTool() {
     </div>
   )
 }
-
 function RearrangeIcon() {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">

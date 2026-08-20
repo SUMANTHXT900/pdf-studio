@@ -132,14 +132,29 @@ export default function Home() {
               variants={card}
               whileHover={{ y: -4, transition: { duration: 0.22, ease: 'easeOut' } }}
               whileTap={{ scale: 0.98 }}
+              onMouseMove={(e) => {
+                const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                const x = e.clientX - r.left
+                const y = e.clientY - r.top
+                const el = e.currentTarget as HTMLElement
+                el.style.setProperty('--mx', `${x}px`)
+                el.style.setProperty('--my', `${y}px`)
+              }}
+              style={{ ['--mx' as any]: '50%', ['--my' as any]: '50%' }}
               className={
                 'group relative overflow-hidden rounded-2xl border border-paper-300/70 dark:border-ink-700 bg-paper-50/90 dark:bg-ink-800/60 p-4 sm:p-6 shadow-soft hover:border-brass-400/50 hover:shadow-lg hover:shadow-brass-400/10 transition-colors' +
                 centerStart + lastFull
               }
             >
-              {/* shine sweep */}
-              <span aria-hidden className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500"
-                style={{ background: 'linear-gradient(105deg, transparent 30%, color-mix(in srgb, var(--color-brass-400) 12%, transparent) 48%, transparent 62%)', transform: 'translateX(-18%)' }} />
+              {/* mouse-following radial highlight — GPU only (opacity + CSS vars, no layout thrash) */}
+              <span
+                aria-hidden
+                className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 ease-out"
+                style={{
+                  background: `radial-gradient(520px circle at var(--mx) var(--my), color-mix(in srgb, var(--color-brass-400) 18%, transparent), transparent 62%)`,
+                  willChange: 'opacity',
+                }}
+              />
 
               <div className="relative flex items-center justify-between mb-6 sm:mb-10">
                 <div className="w-11 h-11 rounded-xl bg-paper-200 dark:bg-ink-700 flex items-center justify-center text-ink-700 dark:text-paper-100 group-hover:bg-brass-400/15 group-hover:text-brass-500 transition-colors duration-300">

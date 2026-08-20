@@ -1,8 +1,31 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo, memo, useCallback } from 'react'
 import { ToolHeading, DropZone, FileChip, Button, Spinner, Card } from '../components/ui'
 import { usePdfFiles } from '../hooks/usePdfFiles'
 import { usePageThumbs } from '../hooks/usePageThumbs'
 import { removePages, splitRanges } from '../lib/pdf'
+
+const PAGE_LIMIT = 24
+
+const ThumbTile = memo(function ThumbTile({ src, index, kept, onToggle }: { src: string; index: number; kept: boolean; onToggle: (i: number) => void }) {
+  return (
+    <button
+      onClick={() => onToggle(index)}
+      className={
+        'relative rounded-lg overflow-hidden border-2 transition-all ' +
+        (kept ? 'border-transparent hover:border-brass-400' : 'border-red-400/70 opacity-40')
+      }
+    >
+      {src ? (
+        <img src={src} alt={`Page ${index + 1}`} loading="lazy" decoding="async" className="w-full aspect-[3/4] object-cover bg-white" />
+      ) : (
+        <div className="w-full aspect-[3/4] bg-paper-200 dark:bg-ink-700 animate-pulse" />
+      )}
+      <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-paper-100 text-[11px] py-0.5 text-center">
+        {kept ? `Page ${index + 1}` : 'removed'}
+      </span>
+    </button>
+  )
+})
 
 export default function SplitTool() {
   const { files, setFiles, addFiles, error, busy, setBusy, setError } = usePdfFiles()
@@ -14,9 +37,11 @@ export default function SplitTool() {
   const [ranges, setRanges] = useState('')
   const [result, setResult] = useState<string | null>(null)
   const [preview, setPreview] = useState<number | null>(null)
+  const [showAll, setShowAll] = useState(false)
 
   useEffect(() => {
     setResult(null)
+    setShowAll(false)
     if (!file) { setKeep([]); setCount(0); return }
     let cancelled = false
     ;(async () => {
@@ -29,9 +54,16 @@ export default function SplitTool() {
     return () => { cancelled = true }
   }, [file, load])
 
-  function toggle(i: number) {
+  const toggle = useCallback((i: number) => {
     setKeep((prev) => prev.map((v, idx) => (idx === i ? !v : v)))
-  }
+  }, [])
+
+  const keepCount = useMemo(() => keep.filter(Boolean).length, [keep])
+  const visibleThumbs = useMemo(() => {
+    if (thumbs.length <= 30 || showAll) return thumbs
+    return thumbs.slice(0, PAGE_LIMIT)
+  }, [thumbs, showAll])
+  const hiddenCount = thumbs.length - visibleThumbs.length
 
   async function handleCreate() {
     if (!file) return
@@ -64,7 +96,6 @@ export default function SplitTool() {
           const blob = new Blob([res[0].bytes as unknown as BlobPart], { type: 'application/pdf' })
           setResult(URL.createObjectURL(blob))
         } else {
-          // multiple files: download each sequentially
           for (const r of res) {
             const blob = new Blob([r.bytes as unknown as BlobPart], { type: 'application/pdf' })
             const url = URL.createObjectURL(blob)
@@ -80,8 +111,6 @@ export default function SplitTool() {
       setError(e instanceof Error ? e.message : 'Split failed')
     } finally { setBusy(false) }
   }
-
-  const keepCount = keep.filter(Boolean).length
 
   return (
     <div className="py-6">
@@ -116,22 +145,22 @@ export default function SplitTool() {
                     <span className="text-xs text-ink-400">{keepCount} of {count} kept</span>
                   </div>
                   <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
-                    {thumbs.map((src, i) => (
-                      <button
-                        key={i}
-                        onClick={() => toggle(i)}
-                        className={
-                          'relative rounded-lg overflow-hidden border-2 transition-all ' +
-                          (keep[i] ? 'border-transparent hover:border-brass-400' : 'border-red-400/70 opacity-40')
-                        }
-                      >
-                        <img src={src} alt={`Page ${i + 1}`} className="w-full aspect-[3/4] object-cover bg-white" />
-                        <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-paper-100 text-[11px] py-0.5 text-center">
-                          {keep[i] ? `Page ${i + 1}` : 'removed'}
-                        </span>
-                      </button>
+                    {visibleThumbs.map((src, i) => (
+                      <ThumbTile key={i} src={src} index={i} kept={keep[i]} onToggle={toggle} />
                     ))}
+                    {hiddenCount > 0 && (
+                      <button onClick={() => setShowAll(true)} className="rounded-lg border-2 border-dashed border-paper-300 dark:border-ink-700 flex flex-col items-center justify-center gap-1 aspect-[3/4] text-sm text-ink-500 hover:border-brass-400 hover:text-brass-600 transition-colors">
+                        <span className="text-lg">+{hiddenCount}</span>
+                        <span className="text-xs">Show all</span>
+                      </button>
+                    )}
                   </div>
+                  {thumbs.length > 30 && !showAll && (
+                    <p className="text-xs text-ink-400 mt-3">Showing {PAGE_LIMIT} of {thumbs.length} pages — click “Show all” for the rest.</p>
+                  )}
+                  {showAll && thumbs.length > 30 && (
+                    <button onClick={() => setShowAll(false)} className="mt-3 text-xs text-ink-400 hover:text-ink-700">Show less</button>
+                  )}
                 </Card>
               )}
             </>

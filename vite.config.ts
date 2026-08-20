@@ -32,13 +32,24 @@ export default defineConfig({
   define: {
     __FOLIO_VERSION__: JSON.stringify(version),
   },
+  optimizeDeps: {
+    include: ['pdfjs-dist', 'pdfjs-dist/build/pdf.worker.min.mjs', 'pdf-lib', 'docx', 'mammoth', 'html2canvas'],
+  },
+  worker: {
+    format: 'es',
+  },
   build: {
     chunkSizeWarningLimit: 1500,
     rollupOptions: {
       output: {
-        manualChunks: {
-          pdf: ['pdf-lib', 'pdfjs-dist'],
-          doc: ['docx', 'mammoth'],
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('pdfjs-dist') || id.includes('pdf-lib')) return 'pdf'
+            if (id.includes('docx') || id.includes('mammoth')) return 'doc'
+            if (id.includes('html2canvas') || id.includes('jspdf')) return 'canvas'
+            if (id.includes('framer-motion')) return 'motion'
+            if (id.includes('react') || id.includes('react-dom')) return 'react-vendor'
+          }
         },
       },
     },

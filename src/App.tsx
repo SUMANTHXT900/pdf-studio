@@ -1,12 +1,14 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode, lazy, Suspense, useMemo } from 'react'
 import { motion, AnimatePresence, useScroll, useSpring } from 'framer-motion'
 import Home from './Home'
-import MergeTool from './tools/MergeTool'
-import SplitTool from './tools/SplitTool'
-import RearrangeTool from './tools/RearrangeTool'
-import RotateTool from './tools/RotateTool'
-import CompressTool from './tools/CompressTool'
 import About from './About'
+
+// lazy tools — keep hash routing snappy by code-splitting per tool
+const MergeTool = lazy(() => import('./tools/MergeTool'))
+const SplitTool = lazy(() => import('./tools/SplitTool'))
+const RearrangeTool = lazy(() => import('./tools/RearrangeTool'))
+const RotateTool = lazy(() => import('./tools/RotateTool'))
+const CompressTool = lazy(() => import('./tools/CompressTool'))
 
 export type ToolId =
   | 'merge'
@@ -15,12 +17,13 @@ export type ToolId =
   | 'rotate'
   | 'compress'
 
-const TOOLS: Record<ToolId, () => ReactNode> = {
-  merge: MergeTool,
-  split: SplitTool,
-  rearrange: RearrangeTool,
-  rotate: RotateTool,
-  compress: CompressTool,
+function ToolFallback() {
+  return (
+    <div className="flex flex-col items-center justify-center gap-3 py-16">
+      <span className="w-8 h-8 rounded-full border-2 border-paper-300 dark:border-ink-700 border-t-brass-500 animate-spin" />
+      <p className="text-sm text-ink-400">Loading tool…</p>
+    </div>
+  )
 }
 
 function useHashRoute(): string {
@@ -35,7 +38,7 @@ function useHashRoute(): string {
 
 function ScrollProgress() {
   const { scrollYProgress } = useScroll()
-  const scaleX = useSpring(scrollYProgress, { stiffness: 120, damping: 30, restDelta: 0.001 })
+  const scaleX = useSpring(scrollYProgress, { stiffness: 300, damping: 30, restDelta: 0.001 })
   return (
     <motion.div
       style={{ scaleX }}
@@ -44,17 +47,33 @@ function ScrollProgress() {
   )
 }
 
+function ThemeWave({ x, y, dark, onDone }: { x: number; y: number; dark: boolean; onDone: () => void }) {
+  // expanding circle from the toggle point — non-blocking
+  const size = Math.hypot(window.innerWidth, window.innerHeight) * 2
+  return (
+    <motion.div
+      initial={{ clipPath: `circle(0px at ${x}px ${y}px)` }}
+      animate={{ clipPath: `circle(${size}px at ${x}px ${y}px)` }}
+      transition={{ duration: 0.65, ease: [0.22, 1, 0.36, 1] }}
+      onAnimationComplete={onDone}
+      className="fixed inset-0 z-[55] pointer-events-none"
+      style={{ background: dark ? '#17130e' : '#f7f3eb' }}
+    />
+  )
+}
+
 export default function App() {
   const route = useHashRoute()
   const id = route as ToolId
-  const Tool = TOOLS[id] || null
   const isAbout = route === 'about'
+  const isTool = (['merge', 'split', 'rearrange', 'rotate', 'compress'] as string[]).includes(id)
   const [dark, setDark] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false
     const saved = localStorage.getItem('folio-theme')
     if (saved) return saved === 'dark'
     return window.matchMedia('(prefers-color-scheme: dark)').matches
   })
+  const [wave, setWave] = useState<{ x: number; y: number; dark: boolean; id: number } | null>(null)
 
   useEffect(() => {
     const root = document.documentElement
@@ -62,21 +81,46 @@ export default function App() {
     localStorage.setItem('folio-theme', dark ? 'dark' : 'light')
   }, [dark])
 
+  const handleToggleDark = (e?: React.MouseEvent) => {
+    const x = e ? e.clientX : window.innerWidth - 24
+    const y = e ? e.clientY : 24
+    const nextDark = !dark
+    setWave({ x, y, dark: nextDark, id: Date.now() })
+    setDark(nextDark)
+  }
+
+  // memoize rendered page node to avoid re-creating on dark toggle etc.
+  const pageNode = useMemo(() => {
+    if (isTool) {
+      const map: Record<string, ReactNode> = {
+        merge: <MergeTool />,
+        split: <SplitTool />,
+        rearrange: <RearrangeTool />,
+        rotate: <RotateTool />,
+        compress: <CompressTool />,
+      }
+      return <Suspense fallback={<ToolFallback />}>{map[id]}</Suspense>
+    }
+    if (isAbout) return <About />
+    return <Home />
+  }, [id, isTool, isAbout])
+
   return (
     <div className="min-h-screen flex flex-col pb-24 sm:pb-0">
       <ScrollProgress />
-      <Header dark={dark} onToggleDark={() => setDark(!dark)} route={route} />
+      {wave && <ThemeWave x={wave.x} y={wave.y} dark={wave.dark} onDone={() => setWave(null)} />}
+      <Header dark={dark} onToggleDark={handleToggleDark} route={route} />
       <AnimatePresence mode="wait">
         <motion.main
           key={route}
-          initial={{ opacity: 0, y: 8, filter: 'blur(4px)' }}
-          animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-          exit={{ opacity: 0, y: -8, filter: 'blur(4px)' }}
-          transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
           className="flex-1"
         >
           <Page>
-            {Tool ? <Tool /> : isAbout ? <About /> : <Home />}
+            {pageNode}
           </Page>
         </motion.main>
       </AnimatePresence>
@@ -85,12 +129,11 @@ export default function App() {
     </div>
   )
 }
-
 function Page({ children }: { children: ReactNode }) {
   return <div className="max-w-5xl mx-auto w-full px-4 sm:px-6 py-8 sm:py-10">{children}</div>
 }
 
-function Header({ dark, onToggleDark, route }: { dark: boolean; onToggleDark: () => void; route: string }) {
+function Header({ dark, onToggleDark, route }: { dark: boolean; onToggleDark: (e?: React.MouseEvent) => void; route: string }) {
   const isHome = !route
   const [scrolled, setScrolled] = useState(false)
   useEffect(() => {
@@ -102,10 +145,10 @@ function Header({ dark, onToggleDark, route }: { dark: boolean; onToggleDark: ()
   return (
     <header
       className={
-        'sticky top-0 z-40 border-b transition-all duration-300 ' +
+        'sticky top-0 z-40 border-b transition-colors duration-300 ' +
         (scrolled
-          ? 'glass bg-paper-100/85 dark:bg-ink-950/85 border-paper-300/70 dark:border-ink-800/70 shadow-soft backdrop-blur-xl'
-          : 'glass bg-paper-100/70 dark:bg-ink-950/70 border-paper-300/50 dark:border-ink-800/50 backdrop-blur-xl')
+          ? 'glass bg-paper-100/85 dark:bg-ink-950/85 border-paper-300/70 dark:border-ink-800/70 shadow-soft'
+          : 'glass bg-paper-100/70 dark:bg-ink-950/70 border-paper-300/50 dark:border-ink-800/50')
       }
     >
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between">
@@ -198,7 +241,6 @@ export const TOOL_LIST: { id: ToolId; name: string; tagline: string }[] = [
   { id: 'rotate', name: 'Rotate', tagline: 'Fix page orientation' },
   { id: 'compress', name: 'Compress', tagline: 'Shrink file size' },
 ]
-
 function MobileNav({ route }: { route: string }) {
   const active = route as ToolId
   return (

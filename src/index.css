@@ -57,24 +57,27 @@ body {
     radial-gradient(50rem 50rem at -10% 110%, color-mix(in srgb, var(--color-forest-600) 12%, transparent), transparent 55%);
 }
 
-/* Subtle paper grain — very low opacity so it never competes */
+/* Subtle paper grain — 0.03 opacity, fixed layer, no layout cost */
 body::before {
   content: '';
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: -1;
-  opacity: 0.035;
+  opacity: 0.03;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
 }
 
-/* Ambient blobs — slow drift, respects reduced motion */
+/* Ambient blobs — GPU-only (transform), slow drift */
 .blob {
   position: fixed;
   border-radius: 9999px;
   filter: blur(42px);
   pointer-events: none;
   z-index: -1;
+  will-change: transform;
+  /* promote to own layer */
+  transform: translateZ(0);
 }
 .blob-a {
   width: 42rem; height: 28rem;
@@ -89,12 +92,12 @@ body::before {
   animation: drift-b 26s ease-in-out infinite alternate;
 }
 @keyframes drift-a {
-  0% { transform: translate(0, 0) scale(1); }
-  100% { transform: translate(-14px, 18px) scale(1.06); }
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  100% { transform: translate3d(-14px, 18px, 0) scale(1.06); }
 }
 @keyframes drift-b {
-  0% { transform: translate(0, 0) scale(1); }
-  100% { transform: translate(18px, -16px) scale(1.05); }
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  100% { transform: translate3d(18px, -16px, 0) scale(1.05); }
 }
 
 /* Tap target */
@@ -117,8 +120,9 @@ body::before {
                 0 10px 30px -14px rgba(0, 0, 0, 0.55);
   }
   .glass {
-    backdrop-filter: blur(14px) saturate(140%);
-    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    /* single blur, no saturate — biggest backdrop-filter cost is saturate+extra blur */
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
   }
   .shimmer {
     position: relative;
@@ -169,7 +173,7 @@ body::before {
   outline-offset: 2px;
 }
 
-/* Reduced motion — keep it calm */
+/* Reduced motion — keep it calm; also guard shimmer/blobs */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
@@ -177,4 +181,5 @@ body::before {
     transition-duration: 0.01ms !important;
   }
   .blob-a, .blob-b { animation: none !important; }
+  .shimmer::after { animation: none !important; }
 }
