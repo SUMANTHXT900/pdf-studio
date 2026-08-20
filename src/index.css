@@ -31,25 +31,23 @@
   --font-display: "Fraunces Variable", Georgia, "Times New Roman", serif;
 }
 
-/* Fix a typo guard — fallback if variable token didn't resolve */
 @theme {
   --color-ink-300: #b8ab93;
 }
 
 html {
   scroll-behavior: smooth;
-  /* Respect safe-area on notched phones */
   -webkit-text-size-adjust: 100%;
 }
 
 body {
   @apply bg-paper-100 text-ink-900 antialiased;
   font-family: var(--font-sans);
-  /* Soft editorial backdrop: warm paper with a faint brass glow */
   background-image:
     radial-gradient(60rem 60rem at 85% -10%, color-mix(in srgb, var(--color-brass-400) 9%, transparent), transparent 60%),
     radial-gradient(50rem 50rem at -10% 110%, color-mix(in srgb, var(--color-forest-500) 7%, transparent), transparent 55%);
   background-attachment: fixed;
+  overflow-x: hidden;
 }
 
 .dark body {
@@ -59,7 +57,47 @@ body {
     radial-gradient(50rem 50rem at -10% 110%, color-mix(in srgb, var(--color-forest-600) 12%, transparent), transparent 55%);
 }
 
-/* Minimum tap target for touch devices (44px WCAG) */
+/* Subtle paper grain — very low opacity so it never competes */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+}
+
+/* Ambient blobs — slow drift, respects reduced motion */
+.blob {
+  position: fixed;
+  border-radius: 9999px;
+  filter: blur(42px);
+  pointer-events: none;
+  z-index: -1;
+}
+.blob-a {
+  width: 42rem; height: 28rem;
+  top: -8rem; right: -6rem;
+  background: color-mix(in srgb, var(--color-brass-400) 10%, transparent);
+  animation: drift-a 22s ease-in-out infinite alternate;
+}
+.blob-b {
+  width: 36rem; height: 30rem;
+  bottom: -10rem; left: -8rem;
+  background: color-mix(in srgb, var(--color-forest-500) 8%, transparent);
+  animation: drift-b 26s ease-in-out infinite alternate;
+}
+@keyframes drift-a {
+  0% { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(-14px, 18px) scale(1.06); }
+}
+@keyframes drift-b {
+  0% { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(18px, -16px) scale(1.05); }
+}
+
+/* Tap target */
 @layer base {
   button, a, [role="button"] {
     min-height: var(--tap, 0px);
@@ -69,7 +107,6 @@ body {
   }
 }
 
-/* Soft elevation for cards (single light source, no rainbow) */
 @layer utilities {
   .shadow-soft {
     box-shadow: 0 1px 2px rgba(23, 19, 14, 0.04),
@@ -83,13 +120,30 @@ body {
     backdrop-filter: blur(14px) saturate(140%);
     -webkit-backdrop-filter: blur(14px) saturate(140%);
   }
+  .shimmer {
+    position: relative;
+    overflow: hidden;
+  }
+  .shimmer::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(100deg, transparent 30%, rgba(255,255,255,0.55) 50%, transparent 70%);
+    transform: translateX(-100%);
+    animation: shimmer-slide 2.2s ease-in-out infinite;
+  }
+  .dark .shimmer::after {
+    background: linear-gradient(100deg, transparent 30%, rgba(255,255,255,0.08) 50%, transparent 70%);
+  }
+}
+@keyframes shimmer-slide {
+  100% { transform: translateX(100%); }
 }
 
 ::selection {
   background-color: color-mix(in srgb, var(--color-brass-400) 40%, transparent);
 }
 
-/* Scrollbar */
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -104,8 +158,23 @@ body {
   background: transparent;
 }
 
-/* Utility for the editorial serif display */
 .font-display {
   font-family: var(--font-display);
   font-optical-sizing: auto;
+}
+
+/* Focus ring polish */
+:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-brass-400) 60%, transparent);
+  outline-offset: 2px;
+}
+
+/* Reduced motion — keep it calm */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .blob-a, .blob-b { animation: none !important; }
 }
