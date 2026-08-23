@@ -408,13 +408,23 @@ export function shareAvailable(): boolean {
 }
 
 /* ---------- Merge ---------- */
-export async function mergePdfs(files: ArrayBuffer[]): Promise<Uint8Array> {
+export async function mergePdfs(
+  files: ArrayBuffer[],
+  onProgress?: (stage: string, fileIndex?: number) => void,
+  signal?: AbortSignal,
+): Promise<Uint8Array> {
   const out = await PDFDocument.create()
-  for (const buf of files) {
-    const src = await PDFDocument.load(buf, { ignoreEncryption: true })
+  for (let i = 0; i < files.length; i++) {
+    if (signal?.aborted) throw new DOMException('aborted', 'AbortError')
+    onProgress?.(`Reading file ${i + 1} of ${files.length}…`, i)
+    const src = await PDFDocument.load(files[i], { ignoreEncryption: true })
+    onProgress?.(`Copying pages from file ${i + 1}…`, i)
     const pages = await out.copyPages(src, src.getPageIndices())
     pages.forEach((p) => out.addPage(p))
+    // yield so the UI can paint stage updates
+    await new Promise((r) => setTimeout(r, 0))
   }
+  onProgress?.('Building output PDF…')
   return out.save()
 }
 

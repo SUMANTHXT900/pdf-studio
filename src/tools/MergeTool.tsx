@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Reorder, motion } from 'framer-motion'
-import { ToolHeading, DropZone, Button, DoneBanner, formatBytes } from '../components/ui'
+import { ToolHeading, DropZone, Button, DoneBanner, StageLine, formatBytes } from '../components/ui'
 import { usePdfFiles } from '../hooks/usePdfFiles'
 import { mergePdfs, downloadBytes, shareAvailable, stripExt } from '../lib/pdf'
 
@@ -11,27 +11,40 @@ const MERGE_ICON = (
 )
 
 export default function MergeTool() {
-  const { files, setFiles, addFiles, remove, clear } = usePdfFiles()
+  const { files, setFiles, addFiles, remove, clear, notice } = usePdfFiles()
   const [working, setWorking] = useState(false)
   const [done, setDone] = useState<{ name: string; blob: Blob } | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [stage, setStage] = useState<string | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
 
   const onMerge = async () => {
     if (files.length < 2) return
     setWorking(true)
     setDone(null)
     setError(null)
+    const ac = new AbortController()
+    abortRef.current = ac
     try {
-      const out = await mergePdfs(files.map((f) => f.data))
+      const out = await mergePdfs(
+        files.map((f) => f.data),
+        (stage) => setStage(stage),
+        ac.signal,
+      )
       const name = `merged-${stripExt(files[0].name)}-${files.length}.pdf`
       await downloadBytes(out, name)
       setDone({ name, blob: new Blob([out as unknown as BlobPart], { type: 'application/pdf' }) })
-    } catch {
-      setError('Something went wrong. Please try again.')
+    } catch (e: any) {
+      if (e?.name !== 'AbortError') setError('Something went wrong. Please try again.')
     } finally {
       setWorking(false)
+      setStage(null)
+      abortRef.current = null
     }
   }
+
+  // #9: cancel the running job when the user navigates away
+  useEffect(() => () => { abortRef.current?.abort() }, [])
 
   return (
     <div>
@@ -81,25 +94,29 @@ export default function MergeTool() {
           {/* actions */}
           <div className="flex items-center gap-3">
             <Button onClick={onMerge} disabled={files.length < 2 || working}>
-              {working ? (
-                <>
-                  <Spinner /> Merging…
-                </>
-              ) : (
+              {working ? 'Merging…' : (
                 <>
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M3 12h12M3 18h6" /></svg>
                   Merge {files.length} files
                 </>
               )}
             </Button>
+            {!working && (
             <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-brass-500/40 dark:border-brass-400/30 text-ink-600 dark:text-paper-100 px-5 py-2.5 text-sm font-medium hover:bg-brass-400/[0.07] hover:border-brass-400/60 transition-colors">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
               Add more
               <input type="file" accept="application/pdf" multiple hidden onChange={(e) => { const fs = Array.from(e.target.files || []); if (fs.length) addFiles(fs); e.target.value = '' }} />
             </label>
+            )}
           </div>
 
-          {files.length < 2 && (
+          {working && stage && <StageLine stage={stage} />}
+
+          {notice && (
+            <p className="mt-3 text-xs text-brass-600 dark:text-brass-300 bg-brass-400/[0.07] rounded-xl px-4 py-2.5 border border-brass-500/25">{notice}</p>
+          )}
+
+          {files.length < 2 && !working && (
             <p className="mt-3 text-xs text-ink-400 dark:text-ink-300">Add at least one more PDF to merge.</p>
           )}
 
