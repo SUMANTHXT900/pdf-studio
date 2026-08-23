@@ -3,7 +3,7 @@ import { Reorder } from 'framer-motion'
 import { ToolHeading, DropZone, FileChip, Button, Spinner, Card, DoneBanner, Progress } from '../components/ui'
 import { usePdfFiles } from '../hooks/usePdfFiles'
 import { usePageThumbs } from '../hooks/usePageThumbs'
-import { reorderPages, renderPageFullRes, shareAvailable } from '../lib/pdf'
+import { reorderPages, shareAvailable } from '../lib/pdf'
 
 const PAGE_LIMIT = 24
 
@@ -30,13 +30,13 @@ const RearrangeRow = memo(function RearrangeRow({ pageIdx, pos, thumb, onMoveUp,
 export default function RearrangeTool() {
   const { files, setFiles, addFiles, error, busy, setBusy, setError } = usePdfFiles()
   const file = files[0] ?? null
-  const { thumbs, load, fillAll, loading, progress } = usePageThumbs()
+  const { thumbs, load, fillAll, loading, progress, renderPreview } = usePageThumbs()
   const [order, setOrder] = useState<number[]>([])
   const [result, setResult] = useState<{ name: string; blob: Blob } | null>(null)
   const [viewer, setViewer] = useState<number | null>(null)
   const [hiRes, setHiRes] = useState<Record<number, string>>({})
 
-  // render the inspected page at full res on demand (cached per page)
+  // render the inspected page at full res IN THE WORKER (cached per page)
   useEffect(() => {
     if (viewer === null || !file) return
     const pageNum = order[viewer] + 1
@@ -44,12 +44,12 @@ export default function RearrangeTool() {
     let cancelled = false
     ;(async () => {
       try {
-        const url = await renderPageFullRes(file.data, pageNum)
+        const url = await renderPreview(file.data, pageNum)
         if (!cancelled) setHiRes((prev) => ({ ...prev, [pageNum]: url }))
       } catch { /* keep thumb fallback */ }
     })()
     return () => { cancelled = true }
-  }, [viewer, file, order, hiRes])
+  }, [viewer, file, order, hiRes, renderPreview])
   const [showAll, setShowAll] = useState(false)
 
   useEffect(() => {

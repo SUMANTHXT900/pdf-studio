@@ -274,12 +274,16 @@ export function Progress({ value, label }: { value: number; label?: string }) {
         <span className="text-xs font-mono tabular-nums text-brass-600 dark:text-brass-300">{pct}%</span>
       </div>
       <div className="h-1.5 rounded-full bg-paper-200 dark:bg-ink-700 overflow-hidden">
-        <motion.div
-          className="h-full rounded-full bg-gradient-to-r from-brass-500 to-brass-300"
-          initial={{ width: 0 }}
-          animate={{ width: `${pct}%` }}
-          transition={{ duration: 0.25, ease: 'easeOut' }}
-        />
+        {/* scaleX keeps the animation compositor-only (#21) */}
+        <div className="h-full w-full rounded-full origin-left bg-gradient-to-r from-brass-500 to-brass-300">
+          <motion.div
+            className="h-full w-full rounded-full bg-gradient-to-r from-brass-500 to-brass-300"
+            initial={{ scaleX: 0 }}
+            animate={{ scaleX: pct / 100 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+            style={{ transformOrigin: 'left' }}
+          />
+        </div>
       </div>
     </div>
   )

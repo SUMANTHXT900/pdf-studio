@@ -14,7 +14,7 @@
   <a href="https://dev.folio-pdf.pages.dev/" target="_blank" rel="noopener">
     <img src="https://img.shields.io/badge/Live-dev.folio--pdf.pages.dev-d9902d?style=for-the-badge&logo=cloudflare&logoColor=white" alt="Live dev preview" />
   </a>
-  <img src="https://img.shields.io/badge/version-1.4.0-dev-d9902d?style=for-the-badge" alt="Version" />
+  <img src="https://img.shields.io/badge/version-1.5.0-dev-d9902d?style=for-the-badge" alt="Version" />
   <img src="https://img.shields.io/badge/privacy-100%25%20client--side-16a34a?style=for-the-badge" alt="Privacy" />
 </p>
 
