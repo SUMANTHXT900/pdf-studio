@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo, memo, useCallback } from 'react'
 import { ToolHeading, DropZone, FileChip, Button, Spinner, Card, DoneBanner } from '../components/ui'
 import { usePdfFiles } from '../hooks/usePdfFiles'
 import { usePageThumbs } from '../hooks/usePageThumbs'
-import { applyRotations, downloadBytes, stripExt } from '../lib/pdf'
+import { applyRotations, downloadBytes, shareAvailable, stripExt } from '../lib/pdf'
 const ICON = (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <path d="M21 12a9 9 0 1 1-9-9c2.5 0 4.75 1 6.4 2.6L21 8" />
@@ -54,7 +54,7 @@ export default function RotateTool() {
   const [rot, setRot] = useState<Record<number, number>>({})
   const [allRot, setAllRot] = useState(0)
   const [working, setWorking] = useState(false)
-  const [done, setDone] = useState<{ name: string; url?: string } | null>(null)
+  const [done, setDone] = useState<{ name: string; blob: Blob } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [showAll, setShowAll] = useState(false)
 
@@ -87,9 +87,8 @@ export default function RotateTool() {
       }
       const out = await applyRotations(file.data, final)
       const name = `${stripExt(file.name)}-rotated.pdf`
-      const how = await downloadBytes(out as unknown as Uint8Array, name)
-      const url = how === 'downloaded' ? URL.createObjectURL(new Blob([out as unknown as BlobPart], { type: 'application/pdf' })) : undefined
-      setDone({ name, url })
+      await downloadBytes(out as unknown as Uint8Array, name)
+      setDone({ name, blob: new Blob([out as unknown as BlobPart], { type: 'application/pdf' }) })
     } catch {
       setError('Could not rotate the PDF.')
     } finally {
@@ -162,7 +161,7 @@ export default function RotateTool() {
       )}
 
       {working && <Spinner label="Rotating…" />}
-      {done && <div className="mt-6"><DoneBanner name={done.name} url={done.url} /></div>}
+      {done && <div className="mt-6"><DoneBanner name={done.name} blob={done.blob} shareable={shareAvailable()} /></div>}
       {error && (
         <Card className="mt-6 border-red-500/40">
           <p className="text-sm text-red-500">{error}</p>

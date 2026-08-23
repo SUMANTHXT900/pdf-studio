@@ -267,28 +267,42 @@ export async function downloadBlob(blob: Blob, name: string) {
   setTimeout(() => URL.revokeObjectURL(url), 60_000)
 }
 
-/* Mobile-safe save: try the native share sheet first (reliable in webviews /
-   iOS Safari), fall back to the classic anchor download on desktop. */
-export async function downloadBytes(bytes: Uint8Array, name: string): Promise<'shared' | 'downloaded'> {
-  const blob = new Blob([bytes as unknown as BlobPart], { type: 'application/pdf' })
+/* Direct save via anchor — works from a real user-gesture context on
+   mobile Chrome/Safari and everywhere on desktop. Never auto-invokes
+   the OS share sheet (that confused users — see v1.2.1). */
+export async function downloadBytes(bytes: Uint8Array, name: string): Promise<'downloaded'> {
+  await downloadBlob(new Blob([bytes as unknown as BlobPart], { type: 'application/pdf' }), name)
+  return 'downloaded'
+}
+
+/* Deliberate share — invoked ONLY by an explicit user tap on a Share button. */
+export async function sharePdf(bytes: Uint8Array | Blob, name: string): Promise<'shared' | 'unavailable'> {
   const nav = navigator as Navigator & {
     canShare?: (d: { files?: File[] }) => boolean
     share?: (d: { files?: File[]; title?: string }) => Promise<void>
   }
-  const isMobile = window.matchMedia('(pointer: coarse)').matches
-  if (isMobile && nav.share && nav.canShare) {
-    try {
-      const file = new File([blob], name, { type: 'application/pdf' })
-      if (nav.canShare({ files: [file] })) {
-        await nav.share({ files: [file], title: name })
-        return 'shared'
-      }
-    } catch {
-      /* user dismissed the sheet — fall through to plain download */
-    }
+  if (!nav.share || !nav.canShare) return 'unavailable'
+  const blob = bytes instanceof Blob ? bytes : new Blob([bytes as unknown as BlobPart], { type: 'application/pdf' })
+  const file = new File([blob], name, { type: 'application/pdf' })
+  if (!nav.canShare({ files: [file] })) return 'unavailable'
+  try {
+    await nav.share({ files: [file], title: name })
+    return 'shared'
+  } catch {
+    return 'unavailable'
   }
-  await downloadBlob(blob, name)
-  return 'downloaded'
+}
+
+/* Can this device show a share sheet with files? (used to render Share buttons) */
+export function shareAvailable(): boolean {
+  const nav = navigator as Navigator & {
+    canShare?: (d: { files?: File[] }) => boolean
+  }
+  try {
+    return !!nav.canShare && nav.canShare({ files: [new File([new Blob(['x'])], 't.pdf', { type: 'application/pdf' })] })
+  } catch {
+    return false
+  }
 }
 
 /* ---------- Merge ---------- */

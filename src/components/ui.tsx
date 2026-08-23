@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { sharePdf } from '../lib/pdf'
 
 export function Button({
   children,
@@ -298,35 +299,58 @@ export function StageLine({ stage }: { stage: string }) {
   )
 }
 
-/* Success banner with a REAL tappable link — programmatic clicks can be
-   blocked in mobile webviews, so the user always has a manual path. */
-export function DoneBanner({ name, url }: { name: string; url?: string }) {
+/* Result banner: ALWAYS shows a real tappable "Save to device" anchor (works
+   even where programmatic saves are blocked) + an optional Share button. */
+export function DoneBanner({ name, blob, shareable = false }: { name: string; blob?: Blob; shareable?: boolean }) {
+  const [url] = useState(() => (blob ? URL.createObjectURL(blob) : undefined))
+  const [shared, setShared] = useState(false)
   return (
     <motion.div
       initial={{ opacity: 0, y: 6, scale: 0.99 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ type: 'spring', stiffness: 380, damping: 24 }}
-      className="mt-5 flex flex-col sm:flex-row sm:items-center gap-3 rounded-xl border border-forest-500/30 bg-forest-500/[0.08] px-4 py-3"
+      className="mt-5 rounded-xl border border-forest-500/30 bg-forest-500/[0.08] px-4 py-3.5"
     >
-      <span className="w-8 h-8 rounded-full bg-forest-500/15 text-forest-600 dark:text-forest-300 flex items-center justify-center shrink-0">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M20 6 9 17l-5-5" />
-        </svg>
-      </span>
-      <p className="text-sm text-forest-600 dark:text-forest-300 flex-1 min-w-0">
-        <span className="font-semibold break-all">{name}</span> is ready.
-        {!url && ' If your browser didn\'t save it automatically, use the button.'}
-      </p>
-      {url && (
-        <a
-          href={url}
-          download={name}
-          className="shrink-0 inline-flex items-center gap-2 rounded-lg bg-forest-600 hover:bg-forest-500 text-white px-4 py-2 text-xs font-semibold shadow-sm transition-colors"
-        >
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" x2="12" y1="15" y2="3" /></svg>
-          Save again
-        </a>
-      )}
+      <div className="flex items-start gap-3">
+        <span className="w-8 h-8 rounded-full bg-forest-500/15 text-forest-600 dark:text-forest-300 flex items-center justify-center shrink-0 mt-0.5">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20 6 9 17l-5-5" />
+          </svg>
+        </span>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-forest-600 dark:text-forest-300">
+            {name}
+          </p>
+          <p className="text-xs text-forest-600/80 dark:text-forest-300/80 mt-0.5 break-all">
+            Ready — tap “Save to device” if it didn’t save automatically.
+          </p>
+        </div>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2 pl-11">
+        {url && (
+          <a
+            href={url}
+            download={name}
+            className="inline-flex items-center gap-2 rounded-lg bg-forest-600 hover:bg-forest-500 text-white px-4 py-2.5 text-sm font-semibold shadow-sm transition-colors min-h-[44px]"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" x2="12" y1="15" y2="3" /></svg>
+            Save to device
+          </a>
+        )}
+        {shareable && blob && (
+          <button
+            type="button"
+            onClick={async () => {
+              const r = await sharePdf(blob, name)
+              if (r === 'shared') setShared(true)
+            }}
+            className="inline-flex items-center gap-2 rounded-lg border border-forest-500/40 text-forest-600 dark:text-forest-300 px-4 py-2.5 text-sm font-medium hover:bg-forest-500/[0.08] transition-colors min-h-[44px]"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><line x1="8.59" x2="15.42" y1="13.51" y2="17.49" /><line x1="15.41" x2="8.59" y1="6.51" y2="10.49" /></svg>
+            {shared ? 'Shared ✓' : 'Share…'}
+          </button>
+        )}
+      </div>
     </motion.div>
   )
 }

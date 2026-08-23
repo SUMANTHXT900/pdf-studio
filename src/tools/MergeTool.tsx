@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Reorder, motion } from 'framer-motion'
 import { ToolHeading, DropZone, Button, DoneBanner, formatBytes } from '../components/ui'
 import { usePdfFiles } from '../hooks/usePdfFiles'
-import { mergePdfs, downloadBytes, stripExt } from '../lib/pdf'
+import { mergePdfs, downloadBytes, shareAvailable, stripExt } from '../lib/pdf'
 
 const MERGE_ICON = (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -13,7 +13,7 @@ const MERGE_ICON = (
 export default function MergeTool() {
   const { files, setFiles, addFiles, remove, clear } = usePdfFiles()
   const [working, setWorking] = useState(false)
-  const [done, setDone] = useState<{ name: string; url?: string } | null>(null)
+  const [done, setDone] = useState<{ name: string; blob: Blob } | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const onMerge = async () => {
@@ -24,10 +24,8 @@ export default function MergeTool() {
     try {
       const out = await mergePdfs(files.map((f) => f.data))
       const name = `merged-${stripExt(files[0].name)}-${files.length}.pdf`
-      const how = await downloadBytes(out, name)
-      // desktop keeps an instant re-save link; shared files skip it
-      const url = how === 'downloaded' ? URL.createObjectURL(new Blob([out as unknown as BlobPart], { type: 'application/pdf' })) : undefined
-      setDone({ name, url })
+      await downloadBytes(out, name)
+      setDone({ name, blob: new Blob([out as unknown as BlobPart], { type: 'application/pdf' }) })
     } catch {
       setError('Something went wrong. Please try again.')
     } finally {
@@ -108,7 +106,7 @@ export default function MergeTool() {
           {error && (
             <p className="mt-4 text-sm text-red-500">{error}</p>
           )}
-          {done && <DoneBanner name={done.name} url={done.url} />}
+          {done && <DoneBanner name={done.name} blob={done.blob} shareable={shareAvailable()} />}
         </>
       )}
     </div>
