@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, memo, useCallback } from 'react'
-import { ToolHeading, DropZone, FileChip, Button, Spinner, Card } from '../components/ui'
+import { ToolHeading, DropZone, FileChip, Button, Spinner, Card, DoneBanner } from '../components/ui'
 import { usePdfFiles } from '../hooks/usePdfFiles'
 import { usePageThumbs } from '../hooks/usePageThumbs'
 import { applyRotations, downloadBytes, stripExt } from '../lib/pdf'
@@ -54,7 +54,7 @@ export default function RotateTool() {
   const [rot, setRot] = useState<Record<number, number>>({})
   const [allRot, setAllRot] = useState(0)
   const [working, setWorking] = useState(false)
-  const [done, setDone] = useState<string | null>(null)
+  const [done, setDone] = useState<{ name: string; url?: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [showAll, setShowAll] = useState(false)
 
@@ -87,8 +87,9 @@ export default function RotateTool() {
       }
       const out = await applyRotations(file.data, final)
       const name = `${stripExt(file.name)}-rotated.pdf`
-      await downloadBytes(out as unknown as Uint8Array, name)
-      setDone(name)
+      const how = await downloadBytes(out as unknown as Uint8Array, name)
+      const url = how === 'downloaded' ? URL.createObjectURL(new Blob([out as unknown as BlobPart], { type: 'application/pdf' })) : undefined
+      setDone({ name, url })
     } catch {
       setError('Could not rotate the PDF.')
     } finally {
@@ -161,11 +162,7 @@ export default function RotateTool() {
       )}
 
       {working && <Spinner label="Rotating…" />}
-      {done && (
-        <Card className="mt-6 border-forest-400/40">
-          <p className="text-sm text-forest-500 dark:text-forest-400">✓ Check your downloads — <span className="font-medium">{done}</span></p>
-        </Card>
-      )}
+      {done && <div className="mt-6"><DoneBanner name={done.name} url={done.url} /></div>}
       {error && (
         <Card className="mt-6 border-red-500/40">
           <p className="text-sm text-red-500">{error}</p>

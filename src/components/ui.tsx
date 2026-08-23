@@ -85,18 +85,6 @@ export function DropZone({
       <span aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.05] dark:opacity-[0.07]"
         style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, var(--color-brass-500) 1px, transparent 0)', backgroundSize: '20px 20px' }} />
 
-      {/* ghost preview illustration — two pages becoming one */}
-      <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-24 overflow-hidden opacity-[0.55] dark:opacity-30">
-        <svg className="absolute left-1/2 -translate-x-1/2" width="360" height="96" viewBox="0 0 360 96" fill="none">
-          <rect x="118" y="18" width="52" height="68" rx="6" className="stroke-brass-500/30 dark:stroke-brass-400/25" strokeWidth="1.5" strokeDasharray="4 3" />
-          <rect x="190" y="10" width="52" height="76" rx="6" className="stroke-brass-500/45 dark:stroke-brass-400/35" strokeWidth="1.5" />
-          <rect x="196" y="22" width="28" height="3" rx="1.5" className="fill-brass-500/25 dark:fill-brass-400/20" />
-          <rect x="196" y="32" width="36" height="3" rx="1.5" className="fill-brass-500/20 dark:fill-brass-400/15" />
-          <rect x="196" y="42" width="24" height="3" rx="1.5" className="fill-brass-500/20 dark:fill-brass-400/15" />
-          <path d="M170 48h12m0 0-4-4m4 4-4 4" className="stroke-brass-500/50 dark:stroke-brass-400/40" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </div>
-
       <motion.div
         animate={over ? { y: -3, scale: 1.06 } : { y: 0, scale: 1 }}
         transition={{ type: 'spring', stiffness: 400, damping: 17 }}
@@ -275,23 +263,70 @@ export function Card({ children, className = '' }: { children: React.ReactNode; 
   )
 }
 
-/* Success banner after an operation completes */
-export function DoneBanner({ name }: { name: string }) {
+/* Determinate progress bar (compress) + staged status line (fast ops) */
+export function Progress({ value, label }: { value: number; label?: string }) {
+  const pct = Math.max(0, Math.min(100, Math.round(value)))
+  return (
+    <div className="mt-4" role="status" aria-live="polite">
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-xs font-medium text-ink-500 dark:text-ink-300">{label ?? 'Working…'}</span>
+        <span className="text-xs font-mono tabular-nums text-brass-600 dark:text-brass-300">{pct}%</span>
+      </div>
+      <div className="h-1.5 rounded-full bg-paper-200 dark:bg-ink-700 overflow-hidden">
+        <motion.div
+          className="h-full rounded-full bg-gradient-to-r from-brass-500 to-brass-300"
+          initial={{ width: 0 }}
+          animate={{ width: `${pct}%` }}
+          transition={{ duration: 0.25, ease: 'easeOut' }}
+        />
+      </div>
+    </div>
+  )
+}
+
+/* Staged indicator for single-step ops (merge/split/rotate) */
+export function StageLine({ stage }: { stage: string }) {
+  return (
+    <div className="mt-4 flex items-center gap-2.5" role="status" aria-live="polite">
+      <motion.span
+        animate={{ opacity: [0.35, 1, 0.35] }}
+        transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
+        className="w-2 h-2 rounded-full bg-brass-400"
+      />
+      <span className="text-sm text-ink-500 dark:text-ink-300">{stage}</span>
+    </div>
+  )
+}
+
+/* Success banner with a REAL tappable link — programmatic clicks can be
+   blocked in mobile webviews, so the user always has a manual path. */
+export function DoneBanner({ name, url }: { name: string; url?: string }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 6, scale: 0.99 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ type: 'spring', stiffness: 380, damping: 24 }}
-      className="mt-5 flex items-center gap-3 rounded-xl border border-forest-500/30 bg-forest-500/[0.08] px-4 py-3"
+      className="mt-5 flex flex-col sm:flex-row sm:items-center gap-3 rounded-xl border border-forest-500/30 bg-forest-500/[0.08] px-4 py-3"
     >
       <span className="w-8 h-8 rounded-full bg-forest-500/15 text-forest-600 dark:text-forest-300 flex items-center justify-center shrink-0">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
           <path d="M20 6 9 17l-5-5" />
         </svg>
       </span>
-      <p className="text-sm text-forest-600 dark:text-forest-300">
-        Saved <span className="font-semibold break-all">{name}</span> to your downloads.
+      <p className="text-sm text-forest-600 dark:text-forest-300 flex-1 min-w-0">
+        <span className="font-semibold break-all">{name}</span> is ready.
+        {!url && ' If your browser didn\'t save it automatically, use the button.'}
       </p>
+      {url && (
+        <a
+          href={url}
+          download={name}
+          className="shrink-0 inline-flex items-center gap-2 rounded-lg bg-forest-600 hover:bg-forest-500 text-white px-4 py-2 text-xs font-semibold shadow-sm transition-colors"
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" x2="12" y1="15" y2="3" /></svg>
+          Save again
+        </a>
+      )}
     </motion.div>
   )
 }

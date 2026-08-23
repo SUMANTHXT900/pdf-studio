@@ -13,7 +13,7 @@ const MERGE_ICON = (
 export default function MergeTool() {
   const { files, setFiles, addFiles, remove, clear } = usePdfFiles()
   const [working, setWorking] = useState(false)
-  const [done, setDone] = useState<string | null>(null)
+  const [done, setDone] = useState<{ name: string; url?: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const onMerge = async () => {
@@ -24,8 +24,10 @@ export default function MergeTool() {
     try {
       const out = await mergePdfs(files.map((f) => f.data))
       const name = `merged-${stripExt(files[0].name)}-${files.length}.pdf`
-      await downloadBytes(out, name)
-      setDone(name)
+      const how = await downloadBytes(out, name)
+      // desktop keeps an instant re-save link; shared files skip it
+      const url = how === 'downloaded' ? URL.createObjectURL(new Blob([out as unknown as BlobPart], { type: 'application/pdf' })) : undefined
+      setDone({ name, url })
     } catch {
       setError('Something went wrong. Please try again.')
     } finally {
@@ -106,7 +108,7 @@ export default function MergeTool() {
           {error && (
             <p className="mt-4 text-sm text-red-500">{error}</p>
           )}
-          {done && <DoneBanner name={done} />}
+          {done && <DoneBanner name={done.name} url={done.url} />}
         </>
       )}
     </div>

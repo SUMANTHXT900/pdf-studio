@@ -61,6 +61,46 @@ function ThemeWave({ x, y, dark, onDone }: { x: number; y: number; dark: boolean
   )
 }
 
+/* GPU-composited theme reveal via the View Transitions API.
+   Falls back to an instant switch when unsupported (or reduced motion). */
+function useThemeTransition(
+  setDark: (v: boolean) => void,
+): (e?: React.MouseEvent) => void {
+  return (e?: React.MouseEvent) => {
+    const x = e && e.clientX !== 0 ? e.clientX : window.innerWidth - 40
+    const y = e && e.clientY !== 0 ? e.clientY : 24
+    const nextDark = !document.documentElement.classList.contains('dark')
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+    const doc = document as Document & {
+      startViewTransition?: (cb: () => void) => { ready: Promise<void> }
+    }
+    if (!doc.startViewTransition || reduce) {
+      setDark(nextDark)
+      return
+    }
+    const vt = doc.startViewTransition(() => setDark(nextDark))
+    void vt.ready.then(() => {
+      const r = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y))
+      document.documentElement.animate(
+        { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${r}px at ${x}px ${y}px)`] },
+        {
+          duration: 480,
+          easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+          pseudoElement: '::view-transition-new(root)',
+        },
+      )
+    }).catch(() => {})
+  }
+}
+
+/* Snapshot layering — old view sits below while the new one is circle-revealed */
+const VT_CSS = `
+::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+::view-transition-old(root) { z-index: 1; }
+::view-transition-new(root) { z-index: 2; }
+`
+
 export default function App() {
   const route = useHashRoute()
   const id = route as ToolId
@@ -73,21 +113,13 @@ export default function App() {
     if (saved) return saved === 'dark'
     return window.matchMedia('(prefers-color-scheme: dark)').matches
   })
-  const [wave, setWave] = useState<{ x: number; y: number; dark: boolean } | null>(null)
+  const handleToggleDark = useThemeTransition(setDark)
 
   useEffect(() => {
     const root = document.documentElement
     root.classList.toggle('dark', dark)
     localStorage.setItem('folio-theme', dark ? 'dark' : 'light')
   }, [dark])
-
-  const handleToggleDark = (e?: React.MouseEvent) => {
-    const x = e && e.clientX !== 0 ? e.clientX : window.innerWidth - 40
-    const y = e && e.clientY !== 0 ? e.clientY : 24
-    const nextDark = !dark
-    setWave({ x, y, dark: nextDark })
-    setDark(nextDark)
-  }
 
   // memoize rendered page node — avoids re-creating on unrelated state changes
   const pageNode = useMemo(() => {
@@ -107,10 +139,8 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col pb-[76px] sm:pb-0">
+      <style>{VT_CSS}</style>
       <ScrollProgress />
-      <AnimatePresence>
-        {wave && <ThemeWave x={wave.x} y={wave.y} dark={wave.dark} onDone={() => setWave(null)} />}
-      </AnimatePresence>
 
       {/* Header — no redundant back-link inside tools (they have their own); shows brand + theme only */}
       <Header dark={dark} onToggleDark={handleToggleDark} />

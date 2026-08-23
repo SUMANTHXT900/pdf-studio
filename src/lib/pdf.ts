@@ -169,6 +169,29 @@ export async function renderThumb(
   }
 }
 
+/* ---------- Full-res single-page render (tap-to-inspect) ---------- */
+export async function renderPageFullRes(buffer: ArrayBuffer, pageNum: number): Promise<string> {
+  const doc = await pdfjsLib.getDocument({ data: new Uint8Array(buffer.slice(0)) }).promise
+  try {
+    const page = await doc.getPage(pageNum)
+    const dpr = Math.min(2.5, Math.max(1, window.devicePixelRatio || 1))
+    const viewport = page.getViewport({ scale: 2 * dpr })
+    const w = Math.max(1, Math.floor(viewport.width))
+    const h = Math.max(1, Math.floor(viewport.height))
+    const canvas = document.createElement('canvas')
+    canvas.width = w
+    canvas.height = h
+    const ctx = canvas.getContext('2d')
+    if (!ctx) throw new Error('canvas unavailable')
+    ctx.fillStyle = '#fff'
+    ctx.fillRect(0, 0, w, h)
+    await page.render({ canvasContext: ctx, viewport }).promise
+    return canvas.toDataURL('image/jpeg', 0.92)
+  } finally {
+    await doc.destroy()
+  }
+}
+
 /**
  * Batch render: reuses a single pdfjs doc for all pages — much faster than
  * calling renderThumb per page (which would load the doc N times).
@@ -177,16 +200,18 @@ export async function renderThumb(
 export async function renderThumbsBatched(
   buffer: ArrayBuffer,
   pageNums: number[],
-  scale = 0.4,
+  scale = 0.8,
   signal?: AbortSignal,
 ): Promise<Map<number, string>> {
   const out = new Map<number, string>()
+  const dpr = Math.min(2, Math.max(1, window.devicePixelRatio || 1))
+  const effScale = scale * dpr
   const doc = await pdfjsLib.getDocument({ data: new Uint8Array(buffer.slice(0)) }).promise
   try {
     for (const n of pageNums) {
       if (signal?.aborted) break
       const page = await doc.getPage(n)
-      const viewport = page.getViewport({ scale })
+      const viewport = page.getViewport({ scale: effScale })
       const w = Math.max(1, Math.floor(viewport.width))
       const h = Math.max(1, Math.floor(viewport.height))
 
@@ -200,7 +225,7 @@ export async function renderThumbsBatched(
             ctx.fillRect(0, 0, w, h)
             await page.render({ canvasContext: ctx as any, viewport }).promise
             if ('convertToBlob' in oc) {
-              const blob = await (oc as any).convertToBlob({ type: 'image/jpeg', quality: 0.78 })
+              const blob = await (oc as any).convertToBlob({ type: 'image/webp', quality: 0.85 })
               dataUrl = await new Promise<string>((res) => {
                 const fr = new FileReader()
                 fr.onload = () => res(fr.result as string)
@@ -218,7 +243,7 @@ export async function renderThumbsBatched(
         ctx.fillStyle = '#fff'
         ctx.fillRect(0, 0, w, h)
         await page.render({ canvasContext: ctx, viewport }).promise
-        dataUrl = canvas.toDataURL('image/jpeg', 0.78)
+        dataUrl = canvas.toDataURL('image/jpeg', 0.85)
       }
       out.set(n, dataUrl)
       // yield to main thread briefly so UI stays responsive
@@ -238,11 +263,32 @@ export async function downloadBlob(blob: Blob, name: string) {
   document.body.appendChild(a)
   a.click()
   a.remove()
-  setTimeout(() => URL.revokeObjectURL(url), 4000)
+  // keep the blob alive long enough for slow save sheets (esp. mobile)
+  setTimeout(() => URL.revokeObjectURL(url), 60_000)
 }
 
-export async function downloadBytes(bytes: Uint8Array, name: string) {
-  await downloadBlob(new Blob([bytes as unknown as BlobPart], { type: 'application/pdf' }), name)
+/* Mobile-safe save: try the native share sheet first (reliable in webviews /
+   iOS Safari), fall back to the classic anchor download on desktop. */
+export async function downloadBytes(bytes: Uint8Array, name: string): Promise<'shared' | 'downloaded'> {
+  const blob = new Blob([bytes as unknown as BlobPart], { type: 'application/pdf' })
+  const nav = navigator as Navigator & {
+    canShare?: (d: { files?: File[] }) => boolean
+    share?: (d: { files?: File[]; title?: string }) => Promise<void>
+  }
+  const isMobile = window.matchMedia('(pointer: coarse)').matches
+  if (isMobile && nav.share && nav.canShare) {
+    try {
+      const file = new File([blob], name, { type: 'application/pdf' })
+      if (nav.canShare({ files: [file] })) {
+        await nav.share({ files: [file], title: name })
+        return 'shared'
+      }
+    } catch {
+      /* user dismissed the sheet — fall through to plain download */
+    }
+  }
+  await downloadBlob(blob, name)
+  return 'downloaded'
 }
 
 /* ---------- Merge ---------- */
@@ -373,6 +419,7 @@ export async function compressPdf(
   buffer: ArrayBuffer,
   quality: number, // 0..1 JPEG quality
   targetWidth: number, // max output width in px; never upscales
+  onProgress?: (done: number, total: number) => void,
 ): Promise<Uint8Array> {
   const src = await pdfjsLib.getDocument({ data: new Uint8Array(buffer.slice(0)) }).promise
   const outPdf = await PDFDocument.create()
@@ -395,6 +442,9 @@ export async function compressPdf(
       const img = await outPdf.embedJpg(jpeg)
       const p = outPdf.addPage([viewport.width, viewport.height])
       p.drawImage(img, { x: 0, y: 0, width: viewport.width, height: viewport.height })
+      onProgress?.(i, total)
+      // yield to the event loop so the UI can paint the progress bar
+      await new Promise((r) => setTimeout(r, 0))
     }
   } finally {
     await src.destroy()

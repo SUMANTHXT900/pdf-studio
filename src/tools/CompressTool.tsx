@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ToolHeading, DropZone, FileChip, Button, Spinner, Card, formatBytes } from '../components/ui'
+import { ToolHeading, DropZone, FileChip, Button, Card, Progress, formatBytes } from '../components/ui'
 import { usePdfFiles } from '../hooks/usePdfFiles'
 import { compressPdf } from '../lib/pdf'
 
@@ -15,6 +15,7 @@ export default function CompressTool() {
   const [level, setLevel] = useState<number>(1)
   const [result, setResult] = useState<{ url: string; name: string; saved: number } | null>(null)
   const [note, setNote] = useState<string | null>(null)
+  const [prog, setProg] = useState<{ done: number; total: number } | null>(null)
 
   async function handleCompress() {
     if (!file) return
@@ -22,11 +23,12 @@ export default function CompressTool() {
     setError(null)
     setResult(null)
     setNote(null)
+    setProg({ done: 0, total: 0 })
     try {
       const buf = file.data
       const inputBytes = buf.byteLength
       const { quality, targetWidth } = LEVELS[level]
-      const out = await compressPdf(buf, quality, targetWidth)
+      const out = await compressPdf(buf, quality, targetWidth, (done, total) => setProg({ done, total }))
       const outBytes = out.byteLength
       if (outBytes >= inputBytes) {
         // Compression did not help (e.g. text-only PDF or already-optimized).
@@ -86,9 +88,14 @@ export default function CompressTool() {
           </Card>
 
           {!result && (
-            <Button onClick={handleCompress} disabled={busy} className="w-full">
-              {busy ? <Spinner /> : 'Compress'}
-            </Button>
+            <>
+              <Button onClick={handleCompress} disabled={busy} className="w-full">
+                {busy ? 'Compressing…' : 'Compress'}
+              </Button>
+              {busy && prog && prog.total > 0 && (
+                <Progress value={(prog.done / prog.total) * 100} label={`Rendering page ${prog.done} of ${prog.total}`} />
+              )}
+            </>
           )}
 
           {note && (

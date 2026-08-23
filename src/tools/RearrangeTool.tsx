@@ -3,7 +3,7 @@ import { Reorder } from 'framer-motion'
 import { ToolHeading, DropZone, FileChip, Button, Spinner, Card } from '../components/ui'
 import { usePdfFiles } from '../hooks/usePdfFiles'
 import { usePageThumbs } from '../hooks/usePageThumbs'
-import { reorderPages } from '../lib/pdf'
+import { reorderPages, renderPageFullRes } from '../lib/pdf'
 
 const PAGE_LIMIT = 24
 
@@ -34,6 +34,22 @@ export default function RearrangeTool() {
   const [order, setOrder] = useState<number[]>([])
   const [result, setResult] = useState<string | null>(null)
   const [viewer, setViewer] = useState<number | null>(null)
+  const [hiRes, setHiRes] = useState<Record<number, string>>({})
+
+  // render the inspected page at full res on demand (cached per page)
+  useEffect(() => {
+    if (viewer === null || !file) return
+    const pageNum = order[viewer] + 1
+    if (hiRes[pageNum]) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const url = await renderPageFullRes(file.data, pageNum)
+        if (!cancelled) setHiRes((prev) => ({ ...prev, [pageNum]: url }))
+      } catch { /* keep thumb fallback */ }
+    })()
+    return () => { cancelled = true }
+  }, [viewer, file, order, hiRes])
   const [showAll, setShowAll] = useState(false)
 
   useEffect(() => {
@@ -148,17 +164,28 @@ export default function RearrangeTool() {
 
       {viewer !== null && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
           onClick={() => setViewer(null)}
         >
-          <div className="max-w-3xl w-full" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-2 text-paper-100">
+          <div className="max-w-3xl w-full max-h-[92vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-2 text-paper-100 shrink-0">
               <span className="font-display text-lg">Page {order[viewer] + 1}</span>
               <button onClick={() => setViewer(null)} className="rounded-full bg-white/10 px-3 py-1 text-sm hover:bg-white/20">Close</button>
             </div>
-            {thumbs[order[viewer]] && (
-              <img src={thumbs[order[viewer]]} alt={`Page ${order[viewer] + 1}`} loading="lazy" className="w-full rounded-xl shadow-2xl bg-white" />
-            )}
+            {(() => {
+              const pageNum = order[viewer] + 1
+              const hi = hiRes[pageNum]
+              const fallback = thumbs[order[viewer]]
+              return hi ? (
+                <img src={hi} alt={`Page ${pageNum} (full resolution)`} className="w-full rounded-xl shadow-2xl bg-white object-contain max-h-[82vh]" />
+              ) : (
+                <>
+                  {fallback && <img src={fallback} alt={`Page ${pageNum}`} className="w-full rounded-xl shadow-2xl bg-white opacity-80" />}
+                  {!fallback && <div className="h-64 rounded-xl bg-white/20 animate-pulse" />}
+                  <p className="mt-2 text-center text-xs text-paper-100/80">Rendering full-resolution view…</p>
+                </>
+              )
+            })()}
           </div>
         </div>
       )}
