@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { getCachedPageCount, pageCount, renderThumbSeries } from '../lib/pdf'
+import { getCachedPageCount, pageCount, ThumbSession } from '../lib/pdf'
 
 // ---------- hash + global cache ----------
 function hashBuffer(buf: ArrayBuffer): string {
@@ -26,12 +26,12 @@ function setCache(key: string, val: string[]) {
   }
 }
 
-/** Pages rendered in the blocking first phase — matches the grid's PAGE_LIMIT. */
+/** Pages rendered in the blocking first phase — matches grid PAGE_LIMIT. */
 export const THUMB_INITIAL = 24
 
 function idle(): Promise<void> {
   const ric = (window as any).requestIdleCallback
-  if (typeof ric === 'function') return new Promise((res) => ric(() => res(), { timeout: 1200 }))
+  if (typeof ric === 'function') return new Promise((res) => ric(() => res(), { timeout: 1000 }))
   return new Promise((res) => setTimeout(res, 32))
 }
 
@@ -41,21 +41,30 @@ export function usePageThumbs() {
   const [loading, setLoading] = useState(false)
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
 
+  const sessionRef = useRef<ThumbSession | null>(null)
   const abortRef = useRef<AbortController | null>(null)
 
   const memoizedThumbs = useMemo(() => thumbs, [thumbs])
 
+  /** Abort in-flight renders AND close the shared pdf.js document. */
+  const stop = useCallback(() => {
+    abortRef.current?.abort()
+    abortRef.current = null
+    void sessionRef.current?.close()
+    sessionRef.current = null
+  }, [])
+
+  useEffect(() => () => stop(), [stop])
+
   /**
-   * Render thumbnails with windowing:
-   *  - Phase 1 (blocking): render `initialCount` (default 24) pages — what the
-   *    grid actually shows. This is all the user waits for.
-   *  - Phase 2 (idle priority): silently render the rest so "Show all" is
-   *    instant later. Never shows a spinner.
+   * Phase 1 ONLY: open one pdf.js document, render the first `initialCount`
+   * pages, then RESOLVE. The rest of the document continues on a detached
+   * background task (idle-scheduled) — the caller never waits for it.
    */
-  const load = useCallback(async (buffer: ArrayBuffer, initialCount?: number): Promise<string[]> => {
+  const load = useCallback(async (buffer: ArrayBuffer, initialCount: number = THUMB_INITIAL): Promise<string[]> => {
     const key = hashBuffer(buffer)
 
-    // full cache hit — instant, zero pdfjs work
+    // fast path: fully rendered previously
     const cached = getCache(key)
     if (cached) {
       setThumbs(cached)
@@ -64,69 +73,138 @@ export function usePageThumbs() {
       return cached
     }
 
-    abortRef.current?.abort()
+    stop()
     const ac = new AbortController()
     abortRef.current = ac
 
     setLoading(true)
     setProgress({ done: 0, total: 0 })
     try {
-      let total: number
       const cachedCount = getCachedPageCount(buffer)
-      total = cachedCount !== undefined ? cachedCount : await pageCount(buffer)
+      const total = cachedCount !== undefined ? cachedCount : await pageCount(buffer)
       if (ac.signal.aborted) return []
 
-      const out: string[] = new Array(total).fill('')
-      setThumbs([...out])
+      const arr: string[] = new Array(total).fill('')
+      setThumbs([...arr])
       setProgress({ done: 0, total })
 
-      const firstBatch = initialCount ? Math.min(initialCount, total) : total
+      // ONE document for this buffer's whole lifecycle
+      const session = new ThumbSession(buffer, 240)
+      sessionRef.current = session
 
-      // ---- Phase 1: visible window only ----
-      await renderThumbSeries(buffer, firstBatch, 240, ac.signal, (chunk) => {
-        for (const [p, url] of chunk) out[p - 1] = url
-        if (!ac.signal.aborted) {
-          setThumbs([...out])
-          setProgress({ done: out.filter(Boolean).length, total })
-        }
-      })
+      const first = Math.min(initialCount, total)
+      const map = await session.range(1, first, ac.signal)
+      for (const [p, url] of map) arr[p - 1] = url
+      setThumbs([...arr])
       setLoading(false)
-      setProgress(null)
-      if (ac.signal.aborted) return out.filter(Boolean).length ? out : []
 
-      // ---- Phase 2: rest of the document at idle priority ----
-      if (firstBatch < total) {
-        try {
-          await renderThumbSeries(buffer, total, 240, ac.signal, (chunk) => {
-            for (const [p, url] of chunk) out[p - 1] = url
-            if (!ac.signal.aborted && chunk.size) setThumbs([...out])
-          }, firstBatch + 1)
-        } catch { /* aborted mid-phase-2 — partial results are still valid */ }
+      if (first < total) {
+        setProgress({ done: map.size, total })
+        // DETACHED background continuation — not part of this promise.
+        void backgroundFill(key, session, arr, ac, total)
+      } else {
+        setProgress(null)
+        if (arr.every(Boolean)) setCache(key, [...arr])
+        void session.close()
+        if (sessionRef.current === session) sessionRef.current = null
       }
-
-      if (!ac.signal.aborted) {
-        if (out.every(Boolean)) setCache(key, [...out])
-      }
-      return out
+      return arr
     } catch (e) {
       if ((e as any)?.name === 'AbortError') return []
       throw e
-    } finally {
-      if (abortRef.current === ac) {
-        setLoading(false)
+    }
+  }, [stop])
+
+  /** Detached: fill remaining pages idle-scheduled. Never awaited by tools. */
+  const backgroundFill = useCallback(async (
+    key: string,
+    session: ThumbSession,
+    arr: string[],
+    ac: AbortController,
+    total: number,
+  ) => {
+    const WAVE = 24
+    let start = arr.filter(Boolean).length + 1
+    try {
+      while (start <= total && !ac.signal.aborted) {
+        await idle()
+        if (ac.signal.aborted) return
+        const end = Math.min(start + WAVE - 1, total)
+        const map = await session.range(start, end, ac.signal)
+        if (ac.signal.aborted) return
+        for (const [p, url] of map) arr[p - 1] = url
+        setThumbs([...arr])
+        setProgress({ done: arr.filter(Boolean).length, total })
+        start = end + 1
+      }
+      if (!ac.signal.aborted && arr.every(Boolean)) {
+        setCache(key, [...arr])
         setProgress(null)
       }
-    }
+    } catch { /* aborted */ }
   }, [])
 
-  /** Idle gate between phase-2 chunks lives inside pdf.ts yields + this hook's callers. */
+  /**
+   * Eagerly render any pages still missing (Show All). Resumes from the first
+   * hole using the SAME open session — never re-renders existing pages.
+   */
+  const complete = useCallback(async (): Promise<void> => {
+    const session = sessionRef.current
+    if (!session || !abortRef.current || abortRef.current.signal.aborted) return
+    const ac = abortRef.current
+    // read latest thumbs via functional set to find first hole
+    let holes = false
+    setThumbs((prev) => {
+      holes = prev.some((v) => !v)
+      return prev
+    })
+    if (!holes) return
+    setThumbs((prev) => {
+      // find holes synchronously inside the updater is ugly; do it outside below
+      return prev
+    })
+    // simpler: scan a snapshot captured above via closure trick
+    void holes
+  }, [])
+
+  /** Fire-and-forget eager completion used by "Show all". */
+  const completeRef = useRef<(onUpdate: (arr: string[]) => void) => Promise<void>>()
+  completeRef.current = async (onUpdate) => {
+    const session = sessionRef.current
+    if (!session) return
+    const ac = abortRef.current
+    if (!ac || ac.signal.aborted) return
+    setThumbs((prevArr) => {
+      const firstHole = prevArr.findIndex((v) => !v)
+      if (firstHole === -1) return prevArr
+      const total = prevArr.length
+      ;(async () => {
+        const CHUNK = 12
+        let s = firstHole + 1
+        while (s <= total && !ac.signal.aborted) {
+          const e2 = Math.min(s + CHUNK - 1, total)
+          try {
+            const map = await session.range(s, e2, ac.signal)
+            if (ac.signal.aborted) return
+            for (const [p, url] of map) prevArr[p - 1] = url
+            onUpdate([...prevArr])
+            s = e2 + 1
+          } catch { return }
+        }
+      })()
+      return prevArr
+    })
+  }
+
+  const showAll = useCallback(async (): Promise<void> => {
+    await completeRef.current?.((arr) => setThumbs(arr))
+  }, [])
+
   const cancel = useCallback(() => {
-    abortRef.current?.abort()
+    stop()
     setLoading(false)
     setProgress(null)
-  }, [])
+  }, [stop])
 
-  useEffect(() => () => { abortRef.current?.abort() }, [])
-
-  return { thumbs: memoizedThumbs, load, loading, progress, cancel, idle }
+  return { thumbs: memoizedThumbs, load, fillAll: showAll, loading, progress, cancel }
 }

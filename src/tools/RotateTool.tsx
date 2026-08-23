@@ -45,7 +45,7 @@ const RotateTile = memo(function RotateTile({ src, idx, angle, onLeft, onRight }
 export default function RotateTool() {
   const { files, addFiles, remove } = usePdfFiles()
   const file = files[0]
-  const { thumbs, load, loading } = usePageThumbs()
+  const { thumbs, load, fillAll, loading } = usePageThumbs()
 
   useEffect(() => {
     if (file) void load(file.data, PAGE_LIMIT)
@@ -136,7 +136,7 @@ export default function RotateTool() {
                   )
                 })}
                 {hiddenCount > 0 && (
-                  <button onClick={() => { setShowAll(true); void load(file.data) }} className="rounded-lg border-2 border-dashed border-paper-300 dark:border-ink-700 flex flex-col items-center justify-center gap-1 aspect-[3/4] text-sm text-ink-500 hover:border-brass-400 hover:text-brass-600 transition-colors">
+                  <button onClick={() => { setShowAll(true); void fillAll() }} className="rounded-lg border-2 border-dashed border-paper-300 dark:border-ink-700 flex flex-col items-center justify-center gap-1 aspect-[3/4] text-sm text-ink-500 hover:border-brass-400 hover:text-brass-600 transition-colors">
                     <span className="text-lg">+{hiddenCount}</span>
                     <span className="text-xs">{thumbs.filter(Boolean).length < thumbs.length ? 'Load more' : 'Show all'}</span>
                   </button>

@@ -144,15 +144,18 @@ function useThemeTransition(
     const vt = doc.startViewTransition(() => setDark(nextDark))
     void vt.ready.then(() => {
       const r = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y))
-      document.documentElement.animate(
+      // symmetric ease-in-out — gentle start, steady sweep, soft finish.
+      // Optimized for perceptual smoothness (visible across viewport), not speed.
+      const anim = document.documentElement.animate(
         { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${r}px at ${x}px ${y}px)`] },
         {
-          // ink-spread feel: quick start, long soft settle — visible across the viewport
-          duration: 650,
-          easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
+          duration: 800,
+          easing: 'cubic-bezier(0.45, 0, 0.25, 1)',
           pseudoElement: '::view-transition-new(root)',
         },
       )
+      // C4/#19: hold the guard until the VISUAL animation truly finishes
+      return anim.finished
     }).catch(() => {}).finally(() => { inFlight.current = false })
   }
 }

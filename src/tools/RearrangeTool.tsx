@@ -3,7 +3,7 @@ import { Reorder } from 'framer-motion'
 import { ToolHeading, DropZone, FileChip, Button, Spinner, Card, DoneBanner, Progress } from '../components/ui'
 import { usePdfFiles } from '../hooks/usePdfFiles'
 import { usePageThumbs } from '../hooks/usePageThumbs'
-import { reorderPages, renderPageFullRes } from '../lib/pdf'
+import { reorderPages, renderPageFullRes, shareAvailable } from '../lib/pdf'
 
 const PAGE_LIMIT = 24
 
@@ -30,9 +30,9 @@ const RearrangeRow = memo(function RearrangeRow({ pageIdx, pos, thumb, onMoveUp,
 export default function RearrangeTool() {
   const { files, setFiles, addFiles, error, busy, setBusy, setError } = usePdfFiles()
   const file = files[0] ?? null
-  const { thumbs, load, loading, progress } = usePageThumbs()
+  const { thumbs, load, fillAll, loading, progress } = usePageThumbs()
   const [order, setOrder] = useState<number[]>([])
-  const [result, setResult] = useState<string | null>(null)
+  const [result, setResult] = useState<{ name: string; blob: Blob } | null>(null)
   const [viewer, setViewer] = useState<number | null>(null)
   const [hiRes, setHiRes] = useState<Record<number, string>>({})
 
@@ -77,7 +77,7 @@ export default function RearrangeTool() {
       const buf = file.data
       const out = await reorderPages(buf, order)
       const blob = new Blob([out as unknown as BlobPart], { type: 'application/pdf' })
-      setResult(URL.createObjectURL(blob))
+      setResult({ name: file.name.replace(/\.pdf$/i, '') + '-rearranged.pdf', blob })
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Rearrange failed')
     } finally { setBusy(false) }
@@ -151,15 +151,7 @@ export default function RearrangeTool() {
           )}
 
           {result && (
-            <Card>
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-medium text-ink-900 dark:text-paper-100">Done</span>
-                <span className="text-xs text-forest-600 dark:text-forest-400">pages reordered</span>
-              </div>
-              <a href={result} download={file.name.replace(/\.pdf$/i, '') + '-rearranged.pdf'} className="inline-flex items-center gap-2 rounded-lg bg-ink-900 dark:bg-paper-100 text-paper-100 dark:text-ink-900 px-4 py-2 text-sm font-medium hover:opacity-90 transition-opacity">
-                Download rearranged PDF
-              </a>
-            </Card>
+            <DoneBanner name={result.name} blob={result.blob} shareable={shareAvailable()} />
           )}
         </div>
       )}

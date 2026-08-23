@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo, memo, useCallback } from 'react'
 import { ToolHeading, DropZone, FileChip, Button, Spinner, Card, DoneBanner, Progress } from '../components/ui'
 import { usePdfFiles } from '../hooks/usePdfFiles'
 import { usePageThumbs } from '../hooks/usePageThumbs'
-import { removePages, splitRanges } from '../lib/pdf'
+import { removePages, splitRanges, shareAvailable } from '../lib/pdf'
 
 const PAGE_LIMIT = 24
 
@@ -30,12 +30,12 @@ const ThumbTile = memo(function ThumbTile({ src, index, kept, onToggle }: { src:
 export default function SplitTool() {
   const { files, setFiles, addFiles, error, busy, setBusy, setError } = usePdfFiles()
   const file = files[0] ?? null
-  const { thumbs, load, loading, progress } = usePageThumbs()
+  const { thumbs, load, fillAll, loading, progress } = usePageThumbs()
   const [count, setCount] = useState(0)
   const [keep, setKeep] = useState<boolean[]>([])
   const [mode, setMode] = useState<'pick' | 'ranges'>('pick')
   const [ranges, setRanges] = useState('')
-  const [result, setResult] = useState<string | null>(null)
+  const [result, setResult] = useState<{ name: string; blob: Blob } | 'multi' | null>(null)
   const [preview, setPreview] = useState<number | null>(null)
   const [showAll, setShowAll] = useState(false)
 
@@ -75,7 +75,7 @@ export default function SplitTool() {
         if (keepIdx.length === 0) throw new Error('Select at least one page to keep')
         const out = await removePages(buf, keepIdx)
         const blob = new Blob([out as unknown as BlobPart], { type: 'application/pdf' })
-        setResult(URL.createObjectURL(blob))
+        setResult({ name: file.name.replace(/\.pdf$/i, '') + '-split.pdf', blob })
       } else {
         const parsed = ranges
           .split(/[,\n]/)
@@ -94,7 +94,7 @@ export default function SplitTool() {
         const res = await splitRanges(buf, parsed)
         if (res.length === 1) {
           const blob = new Blob([res[0].bytes as unknown as BlobPart], { type: 'application/pdf' })
-          setResult(URL.createObjectURL(blob))
+          setResult({ name: `${file.name.replace(/\.pdf$/i, '')}-p${res[0].range[0]}-${res[0].range[1]}.pdf`, blob })
         } else {
           for (const r of res) {
             const blob = new Blob([r.bytes as unknown as BlobPart], { type: 'application/pdf' })
@@ -102,7 +102,7 @@ export default function SplitTool() {
             const a = document.createElement('a')
             a.href = url; a.download = `${file.name.replace(/\.pdf$/i, '')}-p${r.range[0]}-${r.range[1]}.pdf`
             document.body.appendChild(a); a.click(); a.remove()
-            setTimeout(() => URL.revokeObjectURL(url), 4000)
+            setTimeout(() => URL.revokeObjectURL(url), 60_000)
           }
           setResult('multi')
         }
@@ -156,7 +156,7 @@ export default function SplitTool() {
                       <ThumbTile key={i} src={src} index={i} kept={keep[i]} onToggle={toggle} />
                     ))}
                     {hiddenCount > 0 && (
-                      <button onClick={() => { setShowAll(true); void load(file.data) }} className="rounded-lg border-2 border-dashed border-paper-300 dark:border-ink-700 flex flex-col items-center justify-center gap-1 aspect-[3/4] text-sm text-ink-500 hover:border-brass-400 hover:text-brass-600 transition-colors">
+                      <button onClick={() => { setShowAll(true); void fillAll() }} className="rounded-lg border-2 border-dashed border-paper-300 dark:border-ink-700 flex flex-col items-center justify-center gap-1 aspect-[3/4] text-sm text-ink-500 hover:border-brass-400 hover:text-brass-600 transition-colors">
                         <span className="text-lg">+{hiddenCount}</span>
                         <span className="text-xs">{thumbs.filter(Boolean).length < thumbs.length ? 'Load more' : 'Show all'}</span>
                       </button>
@@ -193,7 +193,7 @@ export default function SplitTool() {
           )}
 
           {result && result !== 'multi' && (
-            <DoneBanner name={`${file.name.replace(/\.pdf$/i, '')}-split.pdf`} />
+            <DoneBanner name={result.name} blob={result.blob} shareable={shareAvailable()} />
           )}
 
           {result === 'multi' && (
