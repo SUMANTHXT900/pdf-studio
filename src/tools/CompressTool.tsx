@@ -54,7 +54,7 @@ export default function CompressTool() {
       <ToolHeading icon={<CompressIcon />} name="Compress" desc="Shrink file size by re-rendering pages" />
 
       {!file && (
-        <DropZone accept="application/pdf" multiple={false} onFiles={(f) => addFiles(f)} title="Drop a PDF to compress" hint="No upload — processed in your browser" />
+        <DropZone accept="application/pdf" multiple={false} onFiles={(f) => addFiles(f)} title="Drop a PDF to compress" cta="Select PDF" />
       )}
 
       {file && (

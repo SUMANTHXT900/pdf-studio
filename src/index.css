@@ -8,31 +8,32 @@
   --color-paper-100: #f7f3eb;
   --color-paper-200: #efe8da;
   --color-paper-300: #e2d7c2;
+  --color-paper-400: #d4c5a8;
 
   --color-ink-950: #17130e;
   --color-ink-900: #1e1913;
   --color-ink-800: #2a2319;
   --color-ink-700: #3a3126;
+  --color-ink-600: #4a4033;
+  --color-ink-500: #64594a;
   --color-ink-400: #8a7d6a;
-  --color-ink-300: #b8ab93;
+  --color-ink-300: #c3b69e;
 
   /* Rust / brass accent */
+  --color-brass-200: #f4c98a;
   --color-brass-300: #eec176;
   --color-brass-400: #d9902d;
   --color-brass-500: #c97a1f;
   --color-brass-600: #a45e16;
 
   /* Deep forest secondary */
+  --color-forest-300: #7fa084;
   --color-forest-400: #5f7d63;
   --color-forest-500: #43614b;
   --color-forest-600: #2e4534;
 
   --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-display: "Fraunces Variable", Georgia, "Times New Roman", serif;
-}
-
-@theme {
-  --color-ink-300: #b8ab93;
 }
 
 html {
@@ -57,7 +58,7 @@ body {
     radial-gradient(50rem 50rem at -10% 110%, color-mix(in srgb, var(--color-forest-600) 12%, transparent), transparent 55%);
 }
 
-/* Subtle paper grain — 0.03 opacity, fixed layer, no layout cost */
+/* Subtle paper grain — fixed layer, no layout cost */
 body::before {
   content: '';
   position: fixed;
@@ -76,7 +77,6 @@ body::before {
   pointer-events: none;
   z-index: -1;
   will-change: transform;
-  /* promote to own layer */
   transform: translateZ(0);
 }
 .blob-a {
@@ -120,7 +120,6 @@ body::before {
                 0 10px 30px -14px rgba(0, 0, 0, 0.55);
   }
   .glass {
-    /* single blur, no saturate — biggest backdrop-filter cost is saturate+extra blur */
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
   }

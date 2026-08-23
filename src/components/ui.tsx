@@ -45,22 +45,25 @@ export function DropZone({
   accept,
   multiple,
   onFiles,
-  title = 'Drop files here',
-  hint = 'or click to browse',
+  title = 'Drop your PDF here',
+  hint = 'or pick a file — it opens instantly, right here',
+  cta = 'Select file',
 }: {
   accept?: string
   multiple?: boolean
   onFiles: (files: File[]) => void
   title?: string
   hint?: string
+  cta?: string
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [over, setOver] = useState(false)
 
   return (
-    <motion.button
-      type="button"
-      onClick={() => inputRef.current?.click()}
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1], delay: 0.05 }}
       onDragOver={(e) => {
         e.preventDefault()
         setOver(true)
@@ -72,24 +75,33 @@ export function DropZone({
         const files = Array.from(e.dataTransfer.files)
         if (files.length) onFiles(files)
       }}
-      whileTap={{ scale: 0.99 }}
-      animate={over ? { scale: 1.01 } : { scale: 1 }}
-      transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-      className={`group relative w-full overflow-hidden rounded-2xl border-2 border-dashed p-8 sm:p-12 flex flex-col items-center justify-center gap-3 text-center transition-colors ${
+      className={`relative w-full overflow-hidden rounded-2xl border-2 border-dashed p-8 sm:p-14 flex flex-col items-center justify-center gap-4 text-center transition-colors ${
         over
-          ? 'border-brass-400 bg-brass-400/10 shadow-[0_0_0_4px_color-mix(in_srgb,var(--color-brass-400)_15%,transparent)]'
-          : 'border-paper-300 dark:border-ink-700 hover:border-brass-400/50 dark:hover:border-brass-400/35 hover:bg-paper-50/60 dark:hover:bg-ink-800/40'
+          ? 'border-brass-400 bg-brass-400/[0.08] shadow-[0_0_0_5px_color-mix(in_srgb,var(--color-brass-400)_16%,transparent)] scale-[1.005]'
+          : 'border-brass-500/35 dark:border-brass-400/25 bg-paper-50/70 dark:bg-ink-800/40 hover:bg-paper-50 dark:hover:bg-ink-800/60 hover:border-brass-400/60'
       }`}
     >
       {/* subtle grid */}
-      <span aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.04] dark:opacity-[0.06]"
-        style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, var(--color-ink-900) 1px, transparent 0)', backgroundSize: '18px 18px' }} />
+      <span aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.05] dark:opacity-[0.07]"
+        style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, var(--color-brass-500) 1px, transparent 0)', backgroundSize: '20px 20px' }} />
+
+      {/* ghost preview illustration — two pages becoming one */}
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-24 overflow-hidden opacity-[0.55] dark:opacity-30">
+        <svg className="absolute left-1/2 -translate-x-1/2" width="360" height="96" viewBox="0 0 360 96" fill="none">
+          <rect x="118" y="18" width="52" height="68" rx="6" className="stroke-brass-500/30 dark:stroke-brass-400/25" strokeWidth="1.5" strokeDasharray="4 3" />
+          <rect x="190" y="10" width="52" height="76" rx="6" className="stroke-brass-500/45 dark:stroke-brass-400/35" strokeWidth="1.5" />
+          <rect x="196" y="22" width="28" height="3" rx="1.5" className="fill-brass-500/25 dark:fill-brass-400/20" />
+          <rect x="196" y="32" width="36" height="3" rx="1.5" className="fill-brass-500/20 dark:fill-brass-400/15" />
+          <rect x="196" y="42" width="24" height="3" rx="1.5" className="fill-brass-500/20 dark:fill-brass-400/15" />
+          <path d="M170 48h12m0 0-4-4m4 4-4 4" className="stroke-brass-500/50 dark:stroke-brass-400/40" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </div>
 
       <motion.div
-        animate={over ? { y: -2, scale: 1.04 } : { y: 0, scale: 1 }}
-        transition={{ type: 'spring', stiffness: 400, damping: 18 }}
+        animate={over ? { y: -3, scale: 1.06 } : { y: 0, scale: 1 }}
+        transition={{ type: 'spring', stiffness: 400, damping: 17 }}
         className={`relative w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm ring-1 transition-colors ${
-          over ? 'bg-brass-400 text-white ring-brass-400/30' : 'bg-paper-200 dark:bg-ink-800 text-brass-500 ring-black/5 dark:ring-white/5 group-hover:bg-brass-400/10'
+          over ? 'bg-brass-400 text-white ring-brass-400/40' : 'bg-ink-900 dark:bg-paper-100 text-paper-50 dark:text-ink-900 ring-black/5 dark:ring-white/10'
         }`}
       >
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -98,29 +110,53 @@ export function DropZone({
           <line x1="12" x2="12" y1="3" y2="15" />
         </svg>
       </motion.div>
+
       <div className="relative">
-        <p className="font-medium text-ink-800 dark:text-paper-100">{title}</p>
-        <p className="text-sm text-ink-400 dark:text-ink-300 mt-1">{hint}</p>
-        {over && (
-          <motion.p initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="text-xs font-medium text-brass-600 dark:text-brass-400 mt-1">release to add</motion.p>
-        )}
+        <p className="font-display text-lg font-semibold text-ink-900 dark:text-paper-100">{title}</p>
+        <p className="text-sm text-ink-500 dark:text-ink-300 mt-1">{hint}</p>
+        <AnimatePresence>
+          {over && (
+            <motion.p initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="text-xs font-semibold text-brass-600 dark:text-brass-300 mt-1.5 tracking-wide uppercase">
+              release to add
+            </motion.p>
+          )}
+        </AnimatePresence>
       </div>
-      <span className="relative inline-flex items-center gap-1.5 text-[11px] text-ink-400 dark:text-ink-300 rounded-full border border-paper-200 dark:border-ink-700 bg-paper-50/70 dark:bg-ink-800/50 px-3 py-1">
-        PDF only · 100% local
+
+      {/* real CTA button */}
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        className="relative inline-flex items-center gap-2 rounded-xl bg-ink-900 dark:bg-paper-50 text-paper-50 dark:text-ink-900 px-5 py-2.5 text-sm font-medium shadow-sm hover:shadow-md hover:-translate-y-px active:translate-y-0 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brass-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-paper-50 dark:focus-visible:ring-offset-ink-800"
+      >
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
+        </svg>
+        {cta}
+      </button>
+
+      <span className="relative inline-flex items-center gap-1.5 text-[11px] text-ink-500 dark:text-ink-300 rounded-full border border-brass-500/20 dark:border-brass-400/20 bg-brass-400/[0.07] dark:bg-brass-400/[0.09] px-3 py-1">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+        </svg>
+        PDF only · processed locally · never uploaded
       </span>
+
       <input
         ref={inputRef}
         type="file"
         accept={accept}
         multiple={multiple}
-        className="hidden"
+        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+        onClick={(e) => e.stopPropagation()}
         onChange={(e) => {
           const files = Array.from(e.target.files || [])
           if (files.length) onFiles(files)
           e.target.value = ''
         }}
       />
-    </motion.button>
+    </motion.div>
   )
 }
 
@@ -140,9 +176,9 @@ export function FileChip({
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: -6, scale: 0.98 }}
       transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-      className="flex items-center gap-3 rounded-xl border border-paper-300/70 dark:border-ink-700 bg-paper-50 dark:bg-ink-800/60 backdrop-blur px-4 py-3 shadow-sm"
+      className="flex items-center gap-3 rounded-xl border border-paper-300/70 dark:border-ink-700 bg-paper-50 dark:bg-ink-800/60 px-4 py-3 shadow-sm"
     >
-      <span className="w-9 h-9 rounded-lg bg-brass-400/15 text-brass-600 dark:text-brass-400 flex items-center justify-center shrink-0">
+      <span className="w-9 h-9 rounded-lg bg-brass-400/15 text-brass-600 dark:text-brass-300 flex items-center justify-center shrink-0">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
           <polyline points="14 2 14 8 20 8" />
@@ -154,8 +190,8 @@ export function FileChip({
       </div>
       <motion.button
         onClick={onRemove}
-        whileHover={{ scale: 1.06 }}
-        whileTap={{ scale: 0.94 }}
+        whileHover={{ scale: 1.08 }}
+        whileTap={{ scale: 0.92 }}
         className="w-8 h-8 rounded-lg flex items-center justify-center text-ink-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
         aria-label={`Remove ${name}`}
       >
@@ -191,8 +227,9 @@ export function ToolHeading({ icon, name, desc }: { icon: React.ReactNode; name:
       transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
       className="mb-8"
     >
-      <a href="#/" className="inline-flex items-center gap-1.5 text-sm text-ink-400 hover:text-brass-600 dark:text-ink-300 dark:hover:text-brass-400 transition-colors mb-4 group">
-        <span className="w-6 h-6 rounded-full border border-paper-200 dark:border-ink-700 bg-paper-50 dark:bg-ink-800 flex items-center justify-center group-hover:border-brass-400/40 transition-colors">
+      {/* single back-link (header no longer duplicates it) */}
+      <a href="#/" className="inline-flex items-center gap-1.5 text-sm text-ink-500 hover:text-brass-600 dark:text-ink-300 dark:hover:text-brass-300 transition-colors mb-4 group">
+        <span className="w-6 h-6 rounded-full border border-paper-200 dark:border-ink-700 bg-paper-50 dark:bg-ink-800 flex items-center justify-center group-hover:border-brass-400/40 group-hover:-translate-x-0.5 transition-all">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M19 12H5M12 19l-7-7 7-7" />
           </svg>
@@ -210,7 +247,7 @@ export function ToolHeading({ icon, name, desc }: { icon: React.ReactNode; name:
         </motion.div>
         <div className="min-w-0">
           <h1 className="font-display text-2xl sm:text-3xl font-semibold tracking-tight text-ink-900 dark:text-paper-100">{name}</h1>
-          <p className="text-sm text-ink-400 dark:text-ink-300 mt-1 leading-relaxed max-w-xl">{desc}</p>
+          <p className="text-sm text-ink-500 dark:text-ink-300 mt-1 leading-relaxed max-w-xl">{desc}</p>
         </div>
       </div>
     </motion.div>
@@ -234,6 +271,27 @@ export function Card({ children, className = '' }: { children: React.ReactNode; 
       className={`rounded-2xl border border-paper-300/70 dark:border-ink-700 bg-paper-50/80 dark:bg-ink-800/60 backdrop-blur p-6 shadow-soft ${className}`}
     >
       {children}
+    </motion.div>
+  )
+}
+
+/* Success banner after an operation completes */
+export function DoneBanner({ name }: { name: string }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 6, scale: 0.99 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ type: 'spring', stiffness: 380, damping: 24 }}
+      className="mt-5 flex items-center gap-3 rounded-xl border border-forest-500/30 bg-forest-500/[0.08] px-4 py-3"
+    >
+      <span className="w-8 h-8 rounded-full bg-forest-500/15 text-forest-600 dark:text-forest-300 flex items-center justify-center shrink-0">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M20 6 9 17l-5-5" />
+        </svg>
+      </span>
+      <p className="text-sm text-forest-600 dark:text-forest-300">
+        Saved <span className="font-semibold break-all">{name}</span> to your downloads.
+      </p>
     </motion.div>
   )
 }

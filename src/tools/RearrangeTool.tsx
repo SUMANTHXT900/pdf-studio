@@ -83,7 +83,7 @@ export default function RearrangeTool() {
       <ToolHeading icon={<RearrangeIcon />} name="Rearrange" desc="Drag to reorder, or use the arrows — click a page to preview it" />
 
       {!file && (
-        <DropZone accept="application/pdf" multiple={false} onFiles={(f) => addFiles(f)} title="Drop a PDF to rearrange" hint="No upload — processed in your browser" />
+        <DropZone accept="application/pdf" multiple={false} onFiles={(f) => addFiles(f)} title="Drop a PDF to rearrange" cta="Select PDF" />
       )}
 
       {file && (

@@ -101,7 +101,7 @@ export default function RotateTool() {
       <ToolHeading icon={ICON} name="Rotate pages" desc="Rotate individual pages or the whole document." />
 
       {!file ? (
-        <DropZone accept="application/pdf" onFiles={addFiles} title="Drop a PDF to rotate" />
+        <DropZone accept="application/pdf" onFiles={addFiles} title="Drop a PDF to rotate" cta="Select PDF" />
       ) : (
         <>
           <div className="mb-6 flex flex-wrap items-center gap-3">

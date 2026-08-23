@@ -1,5 +1,4 @@
 import { motion } from 'framer-motion'
-
 import { ToolHeading } from './components/ui'
 
 declare const __FOLIO_VERSION__: string
@@ -21,8 +20,8 @@ const ENTRIES: Entry[] = [
     changes: [
       'First public release — five local PDF tools: Merge, Split, Rearrange, Rotate & Compress.',
       '100% in-browser with pdf-lib + pdfjs-dist — no uploads, no servers.',
-      'Editorial design system (paper / ink / brass / forest, Fraunces + Inter) and responsive shell.',
-      'Offline-ready PWA scaffold and glass header.',
+      'Editorial design system (paper / ink / brass / forest, Fraunces + Inter).',
+      'Offline-ready PWA scaffold.',
     ],
   },
   {
@@ -32,9 +31,8 @@ const ENTRIES: Entry[] = [
     status: 'shipped',
     changes: [
       'Removed non-working converters — Folio does one thing well: PDFs that never leave your device.',
-      'Added page viewer (pdf.js canvas) and a precise Split picker with range + thumbnail selection.',
+      'Page viewer (pdf.js canvas) and a precise Split picker with range + thumbnail selection.',
       'Rearrange & Split UX polish: drag-to-reorder, clearer drop zones, safer file handling.',
-      'Motion pass — spring entrances, blur-in page transitions, scroll progress and hover lift.',
     ],
   },
   {
@@ -44,10 +42,10 @@ const ENTRIES: Entry[] = [
     title: 'Polish — motion, shine & perf',
     status: 'latest',
     changes: [
-      'Shine & brass accents: radial glow, shimmer on cards, brass dots and spring badges.',
-      'Performance: manualChunks (pdf / doc), 8 MB PWA precache, spring-tuned animations.',
-      'PWA autoUpdate, safe-area mobile nav, glass + backdrop-blur throughout.',
-      'Accessibility & dark-mode refinements across every tool.',
+      'Bento home grid, proof-strip stats and a real select-CTA drop zone.',
+      'Theme wave transition, mouse-follow card shine, 60fps motion pass.',
+      'Engine: cached thumbnails, lazy tool chunks, paginated grids for large PDFs.',
+      'Dark-mode contrast fixes across every surface.',
     ],
   },
   {
@@ -69,278 +67,190 @@ const ENTRIES: Entry[] = [
     changes: [
       'Batch queue — run Merge/Split/Rotate across dozens of files.',
       'Local OCR for scanned PDFs (on-device, still private).',
-      'Folder watch + keyboard-first command palette.',
     ],
   },
 ]
 
-const container = {
-  hidden: {},
-  show: { transition: { staggerChildren: 0.07, delayChildren: 0.12 } },
-}
-const cardIn = {
-  hidden: { opacity: 0, y: 12 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.22, 1, 0.36, 1] as const } },
-}
+const ease = [0.22, 1, 0.36, 1] as const
 
 export default function About() {
   return (
-    <div className="py-6 max-w-2xl mx-auto">
+    <div className="py-2">
       <ToolHeading
         icon={
-          <svg width="22" height="22" viewBox="0 0 20 20" fill="none" aria-hidden>
-            <rect x="2.5" y="2" width="4" height="16" rx="1" className="fill-brass-400" />
-            <rect x="8" y="2" width="4" height="16" rx="1" className="fill-brass-300" />
-            <rect x="13.5" y="2" width="4" height="16" rx="1" className="fill-brass-500" />
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 8v4l2.5 2.5" />
           </svg>
         }
         name="About Folio"
-        desc="Private, in-browser PDF tools"
+        desc="Private PDF tools — built so your documents never have to leave your hands."
       />
 
-      <motion.div
-        initial="hidden"
-        animate="show"
-        variants={container}
-        className="space-y-5"
-      >
-        {/* What is Folio */}
-        <motion.div
-          variants={cardIn}
-          className="group relative overflow-hidden rounded-2xl border border-paper-300/70 dark:border-ink-700 bg-paper-50/80 dark:bg-ink-800/60 backdrop-blur p-6 shadow-soft hover:shadow-md hover:border-brass-400/20 transition-all"
-        >
-          <span
-            aria-hidden
-            className="pointer-events-none absolute -top-10 -right-10 w-40 h-40 rounded-full opacity-20 blur-2xl"
-            style={{ background: 'radial-gradient(circle, var(--color-brass-400), transparent 70%)' }}
-          />
-          <div className="relative flex items-start justify-between gap-3">
-            <h2 className="font-display text-xl font-semibold tracking-tight text-ink-900 dark:text-paper-100">
-              What is Folio?
-            </h2>
-            <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-forest-500/15 bg-forest-500/10 px-2.5 py-1 text-[11px] font-medium text-forest-600 dark:text-forest-400">
-              <span className="w-1.5 h-1.5 rounded-full bg-forest-500" /> private by design
-            </span>
-          </div>
-          <p className="relative mt-2 text-sm leading-relaxed text-ink-500 dark:text-ink-300">
-            Folio is a collection of PDF utilities that run{' '}
-            <strong className="font-semibold text-ink-800 dark:text-paper-100">entirely in your browser</strong>. Merge,
-            split, rearrange, rotate and compress PDFs without uploading a single byte to a server. Everything is
-            processed locally — your documents never leave your device.
-          </p>
-          <div className="relative mt-4 flex flex-wrap gap-2 text-[11px]">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-paper-200 dark:border-ink-700 bg-paper-50 dark:bg-ink-900/40 px-3 py-1 text-ink-500 dark:text-ink-300">
-              ⚡ Offline-first
-            </span>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-paper-200 dark:border-ink-700 bg-paper-50 dark:bg-ink-900/40 px-3 py-1 text-ink-500 dark:text-ink-300">
-              ✦ No tracking
-            </span>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-brass-400/20 bg-brass-400/10 px-3 py-1 text-brass-600 dark:text-brass-300">
-              ◆ No accounts
-            </span>
-          </div>
-        </motion.div>
-
-        {/* Version tree */}
-        <motion.div
-          variants={cardIn}
-          className="rounded-2xl border border-paper-300/70 dark:border-ink-700 bg-paper-50/80 dark:bg-ink-800/60 backdrop-blur shadow-soft overflow-hidden"
-        >
-          <div className="px-6 pt-6 pb-3 flex items-start justify-between gap-4">
-            <div>
-              <h2 className="font-display text-lg font-semibold tracking-tight text-ink-900 dark:text-paper-100">
-                Version tree
-              </h2>
-              <p className="mt-1 text-xs leading-relaxed text-ink-400 dark:text-ink-300">
-                A living changelog — where Folio has been and where it&apos;s headed.
-              </p>
-            </div>
-            <span className="shrink-0 inline-flex items-center gap-2 rounded-full bg-ink-900 dark:bg-paper-50 text-paper-50 dark:text-ink-900 px-3.5 py-1.5 font-mono text-xs shadow-sm">
-              <span className="w-2 h-2 rounded-full bg-brass-400 animate-pulse" />
-              v{typeof __FOLIO_VERSION__ !== 'undefined' ? __FOLIO_VERSION__ : '1.1.0'} · latest
-            </span>
-          </div>
-
-          {/* timeline */}
-          <div className="relative px-4 sm:px-6 pb-6">
-            {/* vertical spine */}
-            <div className="absolute left-[29px] sm:left-[37px] top-2 bottom-6 w-px bg-gradient-to-b from-brass-400/40 via-paper-300/80 dark:via-ink-700 to-transparent" />
-            <motion.div
-              initial={{ scaleY: 0 }}
-              animate={{ scaleY: 1 }}
-              transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1], delay: 0.25 }}
-              style={{ originY: 0 }}
-              className="absolute left-[29px] sm:left-[37px] top-2 bottom-6 w-px bg-gradient-to-b from-brass-400 via-brass-400/60 to-transparent opacity-60"
-            />
-
-            <div className="space-y-4">
-              {ENTRIES.map((e, i) => {
-                const isLatest = e.status === 'latest'
-                const isPlanned = e.status === 'planned'
-                return (
-                  <motion.div
-                    key={`${e.version}-${i}`}
-                    variants={cardIn}
-                    className="relative flex gap-3 sm:gap-4 group/item"
-                  >
-                    {/* dot column */}
-                    <div className="relative flex flex-col items-center shrink-0 w-7 sm:w-8 pt-3.5">
-                      <div
-                        className={
-                          'relative w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center transition-all duration-300 ' +
-                          (isLatest
-                            ? 'bg-brass-400 border-brass-300 shadow-[0_0_0_6px_color-mix(in_srgb,var(--color-brass-400)_18%,transparent)] group-hover/item:shadow-[0_0_0_8px_color-mix(in_srgb,var(--color-brass-400)_22%,transparent)]'
-                            : isPlanned
-                              ? 'bg-paper-50 dark:bg-ink-800 border-paper-300 dark:border-ink-700 group-hover/item:border-brass-400/40'
-                              : 'bg-paper-50 dark:bg-ink-900 border-brass-400/50 group-hover/item:border-brass-400 group-hover/item:bg-brass-400/10')
-                        }
-                      >
-                        {isLatest && (
-                          <>
-                            <span className="absolute inset-0 rounded-full bg-brass-400/30 animate-ping" aria-hidden />
-                            <span className="relative w-1.5 h-1.5 rounded-full bg-white shadow-sm" />
-                          </>
-                        )}
-                        {!isLatest && (
-                          <span
-                            className={
-                              'w-1.5 h-1.5 rounded-full ' +
-                              (isPlanned ? 'bg-ink-300 dark:bg-ink-500' : 'bg-brass-500')
-                            }
-                          />
-                        )}
-                      </div>
-                    </div>
-
-                    {/* card */}
-                    <div
-                      className={
-                        'flex-1 min-w-0 rounded-2xl border p-4 sm:p-[18px] transition-all duration-300 ' +
-                        (isLatest
-                          ? 'bg-white/90 dark:bg-ink-900/60 border-brass-400/30 shadow-soft group-hover/item:shadow-md group-hover/item:border-brass-400/40'
-                          : isPlanned
-                            ? 'bg-paper-50/60 dark:bg-ink-900/30 border-dashed border-paper-300/80 dark:border-ink-700/80 group-hover/item:border-paper-300 dark:group-hover/item:border-ink-600 group-hover/item:bg-paper-50 dark:group-hover/item:bg-ink-800/40'
-                            : 'bg-white/70 dark:bg-ink-900/40 border-paper-300/60 dark:border-ink-700/60 group-hover/item:bg-white dark:group-hover/item:bg-ink-800/60 group-hover/item:border-paper-300 dark:group-hover/item:border-ink-600 group-hover/item:shadow-sm')
-                      }
-                    >
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span
-                          className={
-                            'inline-flex items-center rounded-full px-2.5 py-1 font-mono text-[11px] font-semibold tracking-wide border ' +
-                            (isLatest
-                              ? 'bg-ink-900 dark:bg-paper-50 text-white dark:text-ink-900 border-ink-900 dark:border-paper-50'
-                              : isPlanned
-                                ? 'bg-paper-100 dark:bg-ink-800 text-ink-400 dark:text-ink-300 border-paper-200 dark:border-ink-700'
-                                : 'bg-paper-100 dark:bg-ink-800 text-ink-700 dark:text-paper-100 border-paper-200 dark:border-ink-700')
-                          }
-                        >
-                          {e.version}
-                        </span>
-                        <span
-                          className={
-                            'inline-flex items-center rounded-full px-2 py-1 text-[10px] font-medium tracking-wide uppercase border ' +
-                            (isLatest
-                              ? 'bg-brass-400/15 text-brass-600 dark:text-brass-300 border-brass-400/25'
-                              : isPlanned
-                                ? 'bg-paper-100 dark:bg-ink-800 text-ink-400 dark:text-ink-300 border-paper-200 dark:border-ink-700'
-                                : 'bg-forest-500/10 text-forest-600 dark:text-forest-400 border-forest-500/15')
-                          }
-                        >
-                          {isLatest ? '● latest' : isPlanned ? '○ planned' : '✓ shipped'}
-                        </span>
-                        <span className="ml-auto text-[11px] font-mono text-ink-400 dark:text-ink-300 tabular-nums">
-                          {e.date}
-                        </span>
-                      </div>
-
-                      <h3 className="mt-2.5 font-display text-[15px] font-semibold leading-none tracking-tight text-ink-900 dark:text-paper-100">
-                        {e.title}
-                      </h3>
-
-                      <ul className="mt-2.5 space-y-1.5">
-                        {e.changes.map((c) => (
-                          <li
-                            key={c}
-                            className="flex gap-2 text-[13px] leading-[1.5] text-ink-500 dark:text-ink-300"
-                          >
-                            <span
-                              className={
-                                'mt-[7px] w-1 h-1 rounded-full shrink-0 ' +
-                                (isLatest ? 'bg-brass-400' : isPlanned ? 'bg-ink-300 dark:bg-ink-600' : 'bg-ink-400 dark:bg-ink-300')
-                              }
-                              aria-hidden
-                            />
-                            <span className="min-w-0">{c}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </motion.div>
-                )
-              })}
-            </div>
-
-            <p className="mt-5 text-center text-[11px] text-ink-400 dark:text-ink-300">
-              Have an idea? <a href="https://github.com/SUMANTHXT900" target="_blank" rel="noopener noreferrer" className="underline decoration-brass-400/40 underline-offset-2 hover:text-brass-600 dark:hover:text-brass-300">Open an issue</a> — the tree grows with you.
+      {/* split layout: sticky mission left, scrolling content right */}
+      <div className="grid lg:grid-cols-[minmax(280px,5fr)_minmax(320px,7fr)] gap-6 lg:gap-10">
+        {/* LEFT — mission + privacy proof */}
+        <div className="lg:sticky lg:top-24 self-start space-y-5">
+          <motion.section
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.45, ease }}
+            className="rounded-2xl border border-paper-300/70 dark:border-ink-700 bg-paper-50/85 dark:bg-ink-800/60 p-6 shadow-soft"
+          >
+            <h2 className="font-display text-xl font-semibold tracking-tight text-ink-900 dark:text-paper-100">What is Folio?</h2>
+            <p className="text-sm text-ink-500 dark:text-ink-300 mt-3 leading-relaxed">
+              Five tools that do one thing well. Every operation — merging, splitting,
+              rotating, compressing — runs inside your browser using pdf-lib and pdf.js.
+              There is no server to upload to, because there is no upload at all.
             </p>
-          </div>
-        </motion.div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {['Offline-first', 'No tracking', 'No accounts'].map((t) => (
+                <span key={t} className="inline-flex items-center rounded-full bg-forest-500/[0.09] dark:bg-forest-500/15 border border-forest-500/20 px-3 py-1 text-xs font-medium text-forest-600 dark:text-forest-300">{t}</span>
+              ))}
+            </div>
+          </motion.section>
 
-        {/* Developer */}
-        <motion.div
-          variants={cardIn}
-          className="group relative overflow-hidden rounded-2xl border border-paper-300/70 dark:border-ink-700 bg-paper-50/80 dark:bg-ink-800/60 backdrop-blur p-6 shadow-soft hover:shadow-md hover:border-brass-400/20 transition-all"
-        >
-          <span
-            aria-hidden
-            className="pointer-events-none absolute -bottom-12 -left-12 w-44 h-44 rounded-full opacity-10 blur-2xl"
-            style={{ background: 'radial-gradient(circle, var(--color-forest-500), transparent 70%)' }}
-          />
-          <h2 className="relative font-display text-lg font-semibold tracking-tight text-ink-900 dark:text-paper-100">
-            Developer
-          </h2>
-          <p className="relative mt-2 text-sm leading-relaxed text-ink-500 dark:text-ink-300">
-            Built by <span className="font-medium text-ink-800 dark:text-paper-100">Sai Sumanth Giduthuri</span> — an ECE
-            student who wanted private, no-upload PDF tools that feel premium. Folio stays local by design: no accounts,
-            no tracking, no surprises.
-          </p>
-          <div className="relative mt-4 flex flex-wrap gap-3">
-            <motion.a
-              whileHover={{ y: -2 }}
-              whileTap={{ scale: 0.98 }}
-              href="https://www.linkedin.com/in/sai-sumanth-giduthuri-0a9956329/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-xl border border-paper-300 dark:border-ink-700 bg-white/70 dark:bg-ink-900/40 px-4 py-2.5 text-sm font-medium hover:border-brass-400/40 hover:bg-brass-400/5 hover:text-brass-600 dark:hover:text-brass-300 transition-colors"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-                <path d="M20.45 20.45h-3.56v-5.57c0-1.33-.48-2.24-1.68-2.24-0.92 0-1.46 0.62-1.7 1.22-0.09 0.21-0.11 0.51-0.11 0.81v5.78H9.84s0.05-9.38 0-10.35h3.56v1.47c0.47-0.73 1.32-1.77 3.22-1.77 2.35 0 4.11 1.54 4.11 4.84v5.81zM5.34 7.43a2.06 2.06 0 1 1 0-4.11 2.06 2.06 0 0 1 0 4.11zM7.12 20.45H3.56V10.1h3.56v10.35z" />
-              </svg>
-              LinkedIn
-            </motion.a>
-            <motion.a
-              whileHover={{ y: -2 }}
-              whileTap={{ scale: 0.98 }}
-              href="https://github.com/SUMANTHXT900"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-xl border border-paper-300 dark:border-ink-700 bg-white/70 dark:bg-ink-900/40 px-4 py-2.5 text-sm font-medium hover:border-brass-400/40 hover:bg-brass-400/5 hover:text-brass-600 dark:hover:text-brass-300 transition-colors"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-                <path d="M12 2a10 10 0 0 0-3.16 19.49c0.5 0.09 0.68-0.22 0.68-0.48v-1.7c-2.77 0.6-3.36-1.34-3.36-1.34-0.45-1.15-1.11-1.46-1.11-1.46-0.91-0.62 0.07-0.61 0.07-0.61 1 0.07 1.53 1.03 1.53 1.03 0.89 1.53 2.34 1.09 2.91 0.83 0.09-0.65 0.35-1.09 0.63-1.34-2.22-0.25-4.55-1.11-4.55-4.94 0-1.09 0.39-1.98 1.03-2.68-0.1-0.25-0.45-1.27 0.1-2.65 0 0 0.84-0.27 2.75 1.02A9.3 9.3 0 0 1 12 6.84a9.3 9.3 0 0 1 2.5 0.33c1.91-1.29 2.75-1.02 2.75-1.02 0.55 1.38 0.2 2.4 0.1 2.65 0.64 0.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93 0.36 0.31 0.68 0.92 0.68 1.85v2.74c0 0.27 0.18 0.58 0.69 0.48A10 10 0 0 0 12 2z" />
-              </svg>
-              GitHub
-            </motion.a>
-          </div>
-        </motion.div>
+          {/* privacy proof — the data flow */}
+          <motion.section
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.45, delay: 0.08, ease }}
+            className="rounded-2xl border border-brass-500/25 dark:border-brass-400/20 bg-brass-400/[0.05] dark:bg-brass-400/[0.07] p-6 shadow-soft"
+          >
+            <h3 className="font-display text-base font-semibold tracking-tight text-ink-900 dark:text-paper-100">Where does my file go?</h3>
+            <ol className="mt-4 space-y-0">
+              {[
+                ['Your device', 'You pick or drop a file'],
+                ['Browser memory', 'pdf.js reads it locally'],
+                ['Back to you', 'Result downloads instantly'],
+              ].map(([t, s], i) => (
+                <li key={t} className="relative flex gap-3 pb-4 last:pb-0">
+                  {i < 2 && <span aria-hidden className="absolute left-[13px] top-7 bottom-0 w-px bg-brass-500/30 dark:bg-brass-400/25" />}
+                  <span className="relative w-7 h-7 shrink-0 rounded-full bg-ink-900 dark:bg-paper-100 text-paper-50 dark:text-ink-900 flex items-center justify-center text-xs font-bold font-mono">{i + 1}</span>
+                  <span className="pt-0.5">
+                    <span className="block text-sm font-semibold text-ink-900 dark:text-paper-100">{t}</span>
+                    <span className="block text-xs text-ink-500 dark:text-ink-300 mt-0.5">{s}</span>
+                  </span>
+                </li>
+              ))}
+            </ol>
+            {/* the crossed-out server */}
+            <div className="mt-4 flex items-center justify-center gap-2 rounded-xl border border-dashed border-red-500/35 bg-red-500/[0.05] px-3 py-2.5">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" className="text-red-500/80"><rect x="3" y="4" width="18" height="6" rx="1.5" /><rect x="3" y="14" width="18" height="6" rx="1.5" /><path d="M7 7h.01M7 17h.01" /></svg>
+              <span className="text-xs font-medium text-red-600/90 dark:text-red-400/90 line-through decoration-red-500/60">cloud server</span>
+              <span className="text-[11px] text-ink-400 dark:text-ink-300">— never involved</span>
+            </div>
+          </motion.section>
 
-        <motion.p
-          variants={cardIn}
-          className="text-xs text-ink-300 dark:text-ink-500 text-center pt-1"
+          {/* open source */}
+          <motion.a
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.45, delay: 0.14, ease }}
+            href="https://github.com/SUMANTHXT900/pdf-studio"
+            target="_blank"
+            rel="noopener noreferrer"
+            whileHover={{ y: -2 }}
+            className="block rounded-2xl border border-paper-300/70 dark:border-ink-700 bg-paper-50/85 dark:bg-ink-800/60 p-5 shadow-soft hover:border-brass-400/40 transition-colors group"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-display text-base font-semibold tracking-tight text-ink-900 dark:text-paper-100">Open source</h3>
+                <p className="text-xs text-ink-500 dark:text-ink-300 mt-1 leading-relaxed">Read the code that touches your files — every line of it.</p>
+              </div>
+              <span className="w-9 h-9 rounded-full border border-paper-200 dark:border-ink-700 flex items-center justify-center text-ink-400 group-hover:text-brass-500 group-hover:border-brass-400/40 transition-colors shrink-0">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 17 17 7M9 7h8v8" /></svg>
+              </span>
+            </div>
+          </motion.a>
+        </div>
+
+        {/* RIGHT — version tree */}
+        <motion.section
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, delay: 0.06, ease }}
+          aria-label="Version history"
         >
-          Folio is free and offline-first. No accounts, no tracking, no uploads.
-        </motion.p>
-      </motion.div>
+          <div className="flex items-center justify-between mb-5 lg:mb-6">
+            <h2 className="font-display text-xl font-semibold tracking-tight text-ink-900 dark:text-paper-100">Version tree</h2>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-brass-500/25 bg-brass-400/[0.08] px-3 py-1 font-mono text-xs text-brass-600 dark:text-brass-300">
+              v{typeof __FOLIO_VERSION__ !== 'undefined' ? __FOLIO_VERSION__ : '1.1.0'}
+            </span>
+          </div>
+
+          <ol className="relative">
+            {/* spine */}
+            <span aria-hidden className="absolute left-[7px] top-2 bottom-2 w-px bg-gradient-to-b from-brass-400/60 via-paper-300 dark:via-ink-700 to-transparent" />
+            {ENTRIES.map((e, i) => (
+              <motion.li
+                key={`${e.version}-${i}`}
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.42, delay: 0.12 + i * 0.07, ease }}
+                className="relative pl-8 pb-6 last:pb-0 group/item"
+              >
+                {/* node dot */}
+                <span aria-hidden className={
+                  'absolute left-0 top-1.5 w-[15px] h-[15px] rounded-full border-2 transition-colors ' +
+                  (e.status === 'latest'
+                    ? 'bg-brass-400 border-brass-400/40 shadow-[0_0_0_4px_color-mix(in_srgb,var(--color-brass-400)_22%,transparent)]'
+                    : e.status === 'shipped'
+                      ? 'bg-brass-400/70 border-paper-100 dark:border-ink-800'
+                      : 'bg-transparent border-dashed border-ink-400/70 dark:border-ink-500')
+                } />
+                <div className={
+                  'rounded-2xl border p-5 shadow-soft transition-all duration-300 group-hover/item:-translate-y-0.5 ' +
+                  (e.status === 'latest'
+                    ? 'border-brass-400/40 bg-brass-400/[0.07] dark:bg-brass-400/[0.09]'
+                    : e.status === 'planned'
+                      ? 'border-paper-300/70 dark:border-ink-700/80 bg-paper-50/50 dark:bg-ink-800/30 border-dashed'
+                      : 'border-paper-300/70 dark:border-ink-700 bg-paper-50/85 dark:bg-ink-800/60 group-hover/item:border-brass-400/30')
+                }>
+                  <div className="flex items-center gap-2.5 flex-wrap mb-2.5">
+                    <span className="font-mono text-sm font-semibold text-brass-600 dark:text-brass-300 tabular-nums">{e.version}</span>
+                    <span className={
+                      'text-[10px] font-medium uppercase tracking-wider rounded-full px-2 py-0.5 border ' +
+                      (e.status === 'latest'
+                        ? 'border-brass-400/40 text-brass-600 dark:text-brass-300 bg-brass-400/10'
+                        : e.status === 'shipped'
+                          ? 'border-forest-500/25 text-forest-600 dark:text-forest-300 bg-forest-500/[0.08]'
+                          : 'border-ink-400/40 dark:border-ink-500/50 text-ink-400 dark:text-ink-300')
+                    }>{e.status}</span>
+                    <span className="text-xs text-ink-400 dark:text-ink-300 ml-auto font-mono">{e.date}</span>
+                  </div>
+                  <h3 className="font-display text-lg font-semibold tracking-tight text-ink-900 dark:text-paper-100">{e.title}</h3>
+                  <ul className="mt-2.5 space-y-1.5">
+                    {e.changes.map((c) => (
+                      <li key={c.slice(0, 24)} className="flex gap-2.5 text-sm text-ink-500 dark:text-ink-300 leading-relaxed">
+                        <span aria-hidden className="mt-[7px] w-1 h-1 rounded-full bg-brass-500/60 shrink-0" />
+                        <span className="text-pretty">{c}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </motion.li>
+            ))}
+          </ol>
+        </motion.section>
+      </div>
+
+      {/* developer strip */}
+      <motion.footer
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5, delay: 0.4 }}
+        className="mt-10 pt-6 border-t border-paper-200/80 dark:border-ink-800/80 flex flex-col sm:flex-row items-center justify-between gap-3"
+      >
+        <p className="text-xs text-ink-400 dark:text-ink-300">
+          Built by <span className="font-medium text-ink-600 dark:text-paper-100">Sai Sumanth Giduthuri</span> · ECE @ GITAM
+        </p>
+        <div className="flex items-center gap-4 text-xs">
+          <a href="https://www.linkedin.com/in/sai-sumanth-giduthuri-0a9956329/" target="_blank" rel="noopener noreferrer" className="hover:text-brass-600 dark:hover:text-brass-300 transition-colors">LinkedIn</a>
+          <a href="https://github.com/SUMANTHXT900" target="_blank" rel="noopener noreferrer" className="hover:text-brass-600 dark:hover:text-brass-300 transition-colors">GitHub</a>
+          <a href="#/" className="hover:text-brass-600 dark:hover:text-brass-300 transition-colors">Folio</a>
+        </div>
+      </motion.footer>
     </div>
   )
 }

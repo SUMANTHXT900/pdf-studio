@@ -42,19 +42,18 @@ function ScrollProgress() {
   return (
     <motion.div
       style={{ scaleX }}
-      className="fixed top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-brass-500 via-brass-400 to-forest-500 origin-left z-[60] pointer-events-none"
+      className="fixed top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-brass-500 via-brass-400 to-forest-400 origin-left z-[60] pointer-events-none"
     />
   )
 }
 
 function ThemeWave({ x, y, dark, onDone }: { x: number; y: number; dark: boolean; onDone: () => void }) {
-  // expanding circle from the toggle point — non-blocking
   const size = Math.hypot(window.innerWidth, window.innerHeight) * 2
   return (
     <motion.div
       initial={{ clipPath: `circle(0px at ${x}px ${y}px)` }}
       animate={{ clipPath: `circle(${size}px at ${x}px ${y}px)` }}
-      transition={{ duration: 0.65, ease: [0.22, 1, 0.36, 1] }}
+      transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
       onAnimationComplete={onDone}
       className="fixed inset-0 z-[55] pointer-events-none"
       style={{ background: dark ? '#17130e' : '#f7f3eb' }}
@@ -66,6 +65,7 @@ export default function App() {
   const route = useHashRoute()
   const id = route as ToolId
   const isAbout = route === 'about'
+  const isHome = !route
   const isTool = (['merge', 'split', 'rearrange', 'rotate', 'compress'] as string[]).includes(id)
   const [dark, setDark] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false
@@ -73,7 +73,7 @@ export default function App() {
     if (saved) return saved === 'dark'
     return window.matchMedia('(prefers-color-scheme: dark)').matches
   })
-  const [wave, setWave] = useState<{ x: number; y: number; dark: boolean; id: number } | null>(null)
+  const [wave, setWave] = useState<{ x: number; y: number; dark: boolean } | null>(null)
 
   useEffect(() => {
     const root = document.documentElement
@@ -82,14 +82,14 @@ export default function App() {
   }, [dark])
 
   const handleToggleDark = (e?: React.MouseEvent) => {
-    const x = e ? e.clientX : window.innerWidth - 24
-    const y = e ? e.clientY : 24
+    const x = e && e.clientX !== 0 ? e.clientX : window.innerWidth - 40
+    const y = e && e.clientY !== 0 ? e.clientY : 24
     const nextDark = !dark
-    setWave({ x, y, dark: nextDark, id: Date.now() })
+    setWave({ x, y, dark: nextDark })
     setDark(nextDark)
   }
 
-  // memoize rendered page node to avoid re-creating on dark toggle etc.
+  // memoize rendered page node — avoids re-creating on unrelated state changes
   const pageNode = useMemo(() => {
     if (isTool) {
       const map: Record<string, ReactNode> = {
@@ -106,35 +106,39 @@ export default function App() {
   }, [id, isTool, isAbout])
 
   return (
-    <div className="min-h-screen flex flex-col pb-24 sm:pb-0">
+    <div className="min-h-screen flex flex-col pb-[76px] sm:pb-0">
       <ScrollProgress />
-      {wave && <ThemeWave x={wave.x} y={wave.y} dark={wave.dark} onDone={() => setWave(null)} />}
-      <Header dark={dark} onToggleDark={handleToggleDark} route={route} />
+      <AnimatePresence>
+        {wave && <ThemeWave x={wave.x} y={wave.y} dark={wave.dark} onDone={() => setWave(null)} />}
+      </AnimatePresence>
+
+      {/* Header — no redundant back-link inside tools (they have their own); shows brand + theme only */}
+      <Header dark={dark} onToggleDark={handleToggleDark} />
+
       <AnimatePresence mode="wait">
         <motion.main
-          key={route}
+          key={route || 'home'}
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -8 }}
-          transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+          transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
           className="flex-1"
         >
-          <Page>
-            {pageNode}
-          </Page>
+          <Page>{pageNode}</Page>
         </motion.main>
       </AnimatePresence>
+
       <Footer />
-      <MobileNav route={route} />
+      {!isHome && isTool && <MobileNav route={route} />}
     </div>
   )
 }
+
 function Page({ children }: { children: ReactNode }) {
   return <div className="max-w-5xl mx-auto w-full px-4 sm:px-6 py-8 sm:py-10">{children}</div>
 }
 
-function Header({ dark, onToggleDark, route }: { dark: boolean; onToggleDark: (e?: React.MouseEvent) => void; route: string }) {
-  const isHome = !route
+function Header({ dark, onToggleDark }: { dark: boolean; onToggleDark: (e?: React.MouseEvent) => void }) {
   const [scrolled, setScrolled] = useState(false)
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8)
@@ -148,11 +152,11 @@ function Header({ dark, onToggleDark, route }: { dark: boolean; onToggleDark: (e
         'sticky top-0 z-40 border-b transition-colors duration-300 ' +
         (scrolled
           ? 'glass bg-paper-100/85 dark:bg-ink-950/85 border-paper-300/70 dark:border-ink-800/70 shadow-soft'
-          : 'glass bg-paper-100/70 dark:bg-ink-950/70 border-paper-300/50 dark:border-ink-800/50')
+          : 'bg-transparent border-transparent')
       }
     >
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between">
-        <a href="#/" className="flex items-center gap-2.5 group">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+        <a href="#/" className="flex items-center gap-2.5 group" aria-label="Folio home">
           <motion.div
             whileHover={{ rotate: 6, scale: 1.04 }}
             whileTap={{ scale: 0.96 }}
@@ -166,32 +170,27 @@ function Header({ dark, onToggleDark, route }: { dark: boolean; onToggleDark: (e
             </svg>
           </motion.div>
           <div className="hidden sm:block">
-            <span className="font-display text-[17px] font-semibold leading-none tracking-tight">Folio</span>
+            <span className="font-display text-[17px] font-semibold leading-none tracking-tight text-ink-900 dark:text-paper-100">Folio</span>
             <span className="block text-[11px] text-ink-400 dark:text-ink-300 leading-none mt-0.5 tracking-wide">private PDF tools</span>
           </div>
         </a>
 
-        <div className="flex items-center gap-2">
-          {!isHome && (
-            <motion.a
-              href="#/"
-              whileHover={{ x: -2 }}
-              whileTap={{ scale: 0.98 }}
-              className="hidden sm:inline-flex items-center gap-1.5 text-sm text-ink-500 hover:text-ink-900 dark:text-ink-300 dark:hover:text-paper-100 transition-colors px-3 py-1.5 rounded-full border border-transparent hover:border-paper-300 dark:hover:border-ink-700 hover:bg-paper-50 dark:hover:bg-ink-800"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M19 12H5M12 19l-7-7 7-7" />
-              </svg>
-              All tools
-            </motion.a>
-          )}
+        <nav className="flex items-center gap-1.5" aria-label="Primary">
+          <motion.a
+            href="#/about"
+            whileHover={{ y: -1 }}
+            whileTap={{ scale: 0.97 }}
+            className="text-sm text-ink-500 hover:text-ink-900 dark:text-ink-300 dark:hover:text-paper-100 transition-colors px-3 py-2 rounded-full hover:bg-paper-200/60 dark:hover:bg-ink-800/70 mr-1"
+          >
+            About
+          </motion.a>
           <motion.button
             onClick={onToggleDark}
             aria-label="Toggle theme"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.94, rotate: 12 }}
             transition={{ type: 'spring', stiffness: 400, damping: 18 }}
-            className="w-9 h-9 rounded-full border border-paper-300 dark:border-ink-700 bg-paper-50/60 dark:bg-ink-800/60 backdrop-blur flex items-center justify-center hover:bg-paper-200 dark:hover:bg-ink-700 hover:border-brass-400/40 transition-colors shadow-sm"
+            className="w-9 h-9 rounded-full border border-paper-300 dark:border-ink-700 bg-paper-50/60 dark:bg-ink-800/60 backdrop-blur flex items-center justify-center hover:bg-paper-200 dark:hover:bg-ink-700 hover:border-brass-400/40 transition-colors shadow-sm text-ink-700 dark:text-paper-100"
           >
             <AnimatePresence mode="wait" initial={false}>
               <motion.span
@@ -205,7 +204,7 @@ function Header({ dark, onToggleDark, route }: { dark: boolean; onToggleDark: (e
               </motion.span>
             </AnimatePresence>
           </motion.button>
-        </div>
+        </nav>
       </div>
     </header>
   )
@@ -213,10 +212,10 @@ function Header({ dark, onToggleDark, route }: { dark: boolean; onToggleDark: (e
 
 function Footer() {
   return (
-    <footer className="border-t border-paper-200/70 dark:border-ink-800/70 py-6 mt-8">
+    <footer className="border-t border-paper-200/70 dark:border-ink-800/70 py-6 mt-8 mb-2 sm:mb-0">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-ink-400 dark:text-ink-300">
         <div className="flex items-center gap-2">
-          <span className="w-7 h-7 rounded-full bg-forest-500/10 dark:bg-forest-500/15 border border-forest-500/15 flex items-center justify-center text-forest-600 dark:text-forest-400">
+          <span className="w-7 h-7 rounded-full bg-forest-500/10 dark:bg-forest-500/15 border border-forest-500/15 flex items-center justify-center text-forest-600 dark:text-forest-300">
             <LockIcon />
           </span>
           <span>100% in-browser — files never leave your device.</span>
@@ -224,9 +223,9 @@ function Footer() {
         <div className="flex items-center gap-4">
           <a href="#/about" className="hover:text-ink-900 dark:hover:text-paper-100 transition-colors">About</a>
           <a href="https://www.linkedin.com/in/sai-sumanth-giduthuri-0a9956329/" target="_blank" rel="noopener noreferrer" className="hover:text-ink-900 dark:hover:text-paper-100 transition-colors">LinkedIn</a>
-          <a href="https://github.com/SUMANTHXT900" target="_blank" rel="noopener noreferrer" className="hover:text-ink-900 dark:hover:text-paper-100 transition-colors">GitHub</a>
+          <a href="https://github.com/SUMANTHXT900/pdf-studio" target="_blank" rel="noopener noreferrer" className="hover:text-ink-900 dark:hover:text-paper-100 transition-colors">GitHub</a>
           <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-paper-200 dark:border-ink-700 bg-paper-50 dark:bg-ink-800 px-2.5 py-1 font-mono text-[11px] text-ink-400 dark:text-ink-300">
-            <span className="w-1.5 h-1.5 rounded-full bg-forest-500 animate-pulse" /> v{__FOLIO_VERSION__}
+            <span className="w-1.5 h-1.5 rounded-full bg-forest-500" /> v{__FOLIO_VERSION__}
           </span>
         </div>
       </div>
@@ -241,37 +240,35 @@ export const TOOL_LIST: { id: ToolId; name: string; tagline: string }[] = [
   { id: 'rotate', name: 'Rotate', tagline: 'Fix page orientation' },
   { id: 'compress', name: 'Compress', tagline: 'Shrink file size' },
 ]
+
+/* Mobile bottom nav — only shown inside tools (home already IS the nav).
+   Utility-focused: back home + sibling tools for quick hopping. */
 function MobileNav({ route }: { route: string }) {
   const active = route as ToolId
   return (
-    <nav className="sm:hidden fixed bottom-0 inset-x-0 z-50 glass bg-paper-100/90 dark:bg-ink-950/90 border-t border-paper-300/60 dark:border-ink-800/60 pb-[env(safe-area-inset-bottom)]">
-      <div className="max-w-md mx-auto grid grid-cols-5 gap-1 px-2 py-1">
+    <nav className="sm:hidden fixed bottom-0 inset-x-0 z-50 glass bg-paper-100/92 dark:bg-ink-950/92 border-t border-paper-300/60 dark:border-ink-800/60 pb-[env(safe-area-inset-bottom)]" aria-label="Tools">
+      <div className="grid grid-cols-6 gap-0.5 px-2 py-1.5">
+        <a href="#/" className="relative flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-xl min-h-[52px]" aria-label="All tools">
+          <span className="w-8 h-8 rounded-lg flex items-center justify-center text-ink-400 dark:text-ink-300">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M3 10.5 12 3l9 7.5" /><path d="M5 9.5V21h14V9.5" /></svg>
+          </span>
+          <span className="text-[9.5px] text-ink-400 dark:text-ink-300">Home</span>
+        </a>
         {TOOL_LIST.map((t) => {
           const isActive = active === t.id
           return (
-            <a
-              key={t.id}
-              href={`#/${t.id}`}
-              className="relative flex flex-col items-center justify-center gap-1 py-2 text-[10px] font-medium"
-            >
+            <a key={t.id} href={`#/${t.id}`} className="relative flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-xl min-h-[52px]" aria-current={isActive ? 'page' : undefined}>
               {isActive && (
                 <motion.span
                   layoutId="mobile-active"
-                  className="absolute inset-0 rounded-2xl bg-brass-400/12 border border-brass-400/20"
-                  transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                  className="absolute inset-x-0.5 inset-y-0 rounded-xl bg-brass-400/12 border border-brass-400/20"
+                  transition={{ type: 'spring', stiffness: 420, damping: 34 }}
                 />
               )}
-              <span
-                className={
-                  'relative w-9 h-9 rounded-xl flex items-center justify-center transition-colors ' +
-                  (isActive ? 'bg-brass-400 text-white shadow-sm' : 'text-ink-400 dark:text-ink-300')
-                }
-              >
+              <span className={'relative w-8 h-8 rounded-lg flex items-center justify-center transition-colors ' + (isActive ? 'text-brass-600 dark:text-brass-300' : 'text-ink-400 dark:text-ink-300')}>
                 {ICONS_MOBILE[t.id]}
               </span>
-              <span className={isActive ? 'relative text-brass-600 dark:text-brass-400 font-semibold' : 'relative text-ink-400 dark:text-ink-300'}>
-                {t.name}
-              </span>
+              <span className={'relative text-[9.5px] leading-none ' + (isActive ? 'text-brass-600 dark:text-brass-300 font-semibold' : 'text-ink-400 dark:text-ink-300')}>{t.name}</span>
             </a>
           )
         })}

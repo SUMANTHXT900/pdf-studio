@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, memo, useCallback } from 'react'
-import { ToolHeading, DropZone, FileChip, Button, Spinner, Card } from '../components/ui'
+import { ToolHeading, DropZone, FileChip, Button, Spinner, Card, DoneBanner } from '../components/ui'
 import { usePdfFiles } from '../hooks/usePdfFiles'
 import { usePageThumbs } from '../hooks/usePageThumbs'
 import { removePages, splitRanges } from '../lib/pdf'
@@ -114,10 +114,10 @@ export default function SplitTool() {
 
   return (
     <div className="py-6">
-      <ToolHeading icon={<SplitIcon />} name="Split" desc="Uncheck the pages to drop, or extract by ranges" />
+      <ToolHeading icon={<SplitIcon />} name="Split" desc="Drop a PDF, then remove the pages you don't need — or extract exact ranges." />
 
       {!file && (
-        <DropZone accept="application/pdf" multiple={false} onFiles={(f) => addFiles(f)} title="Drop a PDF to split" hint="No upload — processed in your browser" />
+        <DropZone accept="application/pdf" multiple={false} onFiles={(f) => addFiles(f)} title="Drop a PDF to split" cta="Select PDF" />
       )}
 
       {file && (
@@ -137,12 +137,12 @@ export default function SplitTool() {
 
           {mode === 'pick' && (
             <>
-              {loading && <div className="flex items-center gap-2 text-sm text-ink-400"><Spinner /> Rendering pages…</div>}
+              {loading && <div className="flex items-center gap-2 text-sm text-ink-400 dark:text-ink-300"><Spinner /> Rendering pages…</div>}
               {!loading && (
                 <Card>
                   <div className="flex items-center justify-between mb-3">
                     <p className="text-sm font-medium text-ink-700 dark:text-paper-100">Tap a page to remove it</p>
-                    <span className="text-xs text-ink-400">{keepCount} of {count} kept</span>
+                    <span className="text-xs font-mono tabular-nums rounded-full bg-paper-200/70 dark:bg-ink-900/60 px-2.5 py-1 text-ink-500 dark:text-ink-300">{keepCount}/{count} kept</span>
                   </div>
                   <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
                     {visibleThumbs.map((src, i) => (
@@ -181,20 +181,12 @@ export default function SplitTool() {
 
           {!result && (
             <Button onClick={handleCreate} disabled={busy} className="w-full">
-              {busy ? <Spinner /> : mode === 'pick' ? 'Create PDF (drop removed)' : 'Extract pages'}
+              {busy ? 'Working…' : mode === 'pick' ? `Create PDF · ${keepCount} page${keepCount === 1 ? '' : 's'}` : 'Extract pages'}
             </Button>
           )}
 
           {result && result !== 'multi' && (
-            <Card>
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-medium text-ink-900 dark:text-paper-100">Done</span>
-                <span className="text-xs text-forest-600 dark:text-forest-400">{mode === 'pick' ? `${keepCount} pages` : 'extracted'}</span>
-              </div>
-              <a href={result} download={file.name.replace(/\.pdf$/i, '') + '-split.pdf'} className="inline-flex items-center gap-2 rounded-lg bg-ink-900 dark:bg-paper-100 text-paper-100 dark:text-ink-900 px-4 py-2 text-sm font-medium hover:opacity-90 transition-opacity">
-                Download
-              </a>
-            </Card>
+            <DoneBanner name={`${file.name.replace(/\.pdf$/i, '')}-split.pdf`} />
           )}
 
           {result === 'multi' && (
