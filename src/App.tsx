@@ -1,5 +1,6 @@
-import { useEffect, useState, type ReactNode, lazy, Suspense, useMemo } from 'react'
-import { motion, AnimatePresence, useScroll, useSpring } from 'framer-motion'
+import { useEffect, useState, type ReactNode, lazy, Suspense, useMemo, useRef } from 'react'
+import React from 'react'
+import { motion, AnimatePresence, useScroll, useSpring, MotionConfig } from 'framer-motion'
 import Home from './Home'
 import About from './About'
 
@@ -24,6 +25,62 @@ function ToolFallback() {
       <p className="text-sm text-ink-400">Loading tool…</p>
     </div>
   )
+}
+
+/* Error boundary — a failed lazy-chunk import (stale SW, interrupted fetch,
+   back/forward cache restore) previously blanked the whole app. Now we show
+   a recovery card that reloads the route cleanly. */
+class RouteErrorBoundary extends React.Component<
+  { children: ReactNode; resetKey: string },
+  { error: Error | null }
+> {
+  state = { error: null as Error | null }
+
+  static getDerivedStateFromError(error: Error) {
+    return { error }
+  }
+
+  componentDidUpdate(prev: { resetKey: string }) {
+    if (prev.resetKey !== this.props.resetKey && this.state.error) {
+      this.setState({ error: null })
+    }
+  }
+
+  render() {
+    if (this.state.error) {
+      const isChunk = /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module/i.test(this.state.error.message)
+      return (
+        <div className="flex flex-col items-center justify-center gap-4 py-20 px-4 text-center">
+          <span className="w-12 h-12 rounded-2xl bg-brass-400/15 text-brass-600 dark:text-brass-300 flex items-center justify-center">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" x2="12" y1="9" y2="13" /><line x1="12" x2="12.01" y1="17" y2="17.01" /></svg>
+          </span>
+          <div>
+            <p className="font-display text-lg font-semibold text-ink-900 dark:text-paper-100">This view hit a snag</p>
+            <p className="text-sm text-ink-500 dark:text-ink-300 mt-1 max-w-sm">
+              {isChunk
+                ? 'A new app version was released while this page was open.'
+                : 'Something went wrong while rendering this view.'}
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => { window.location.hash = '#/' }}
+              className="rounded-xl border border-paper-300 dark:border-ink-700 px-4 py-2 text-sm font-medium text-ink-700 dark:text-paper-100 hover:bg-paper-200 dark:hover:bg-ink-800 transition-colors"
+            >
+              Go home
+            </button>
+            <button
+              onClick={() => window.location.reload()}
+              className="rounded-xl bg-ink-900 dark:bg-paper-50 text-paper-50 dark:text-ink-900 px-4 py-2 text-sm font-medium shadow-sm hover:opacity-90 transition-opacity"
+            >
+              Reload app
+            </button>
+          </div>
+        </div>
+      )
+    }
+    return this.props.children
+  }
 }
 
 function useHashRoute(): string {
@@ -65,34 +122,38 @@ function ThemeWave({ x, y, dark, onDone }: { x: number; y: number; dark: boolean
    Falls back to an instant switch when unsupported (or reduced motion). */
 function useThemeTransition(
   setDark: (v: boolean) => void,
+  onFallback?: (x: number, y: number, next: boolean) => void,
 ): (e?: React.MouseEvent) => void {
+  const inFlight = useRef(false)
   return (e?: React.MouseEvent) => {
-    const x = e && e.clientX !== 0 ? e.clientX : window.innerWidth - 40
-    const y = e && e.clientY !== 0 ? e.clientY : 24
+    // e.detail > 0 only for real pointer clicks (keyboard activation = 0)
+    const isPointer = !!e && e.detail > 0
+    const x = isPointer ? e!.clientX : window.innerWidth - 40
+    const y = isPointer ? e!.clientY : 24
     const nextDark = !document.documentElement.classList.contains('dark')
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
     const doc = document as Document & {
       startViewTransition?: (cb: () => void) => { ready: Promise<void> }
     }
-    if (!doc.startViewTransition || reduce) {
-      setDark(nextDark)
-      return
-    }
+    if (reduce) { setDark(nextDark); return }
+    if (!doc.startViewTransition) { onFallback?.(x, y, nextDark); return }
+    if (inFlight.current) return // ignore rapid re-clicks mid-transition
+
+    inFlight.current = true
     const vt = doc.startViewTransition(() => setDark(nextDark))
     void vt.ready.then(() => {
       const r = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y))
       document.documentElement.animate(
         { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${r}px at ${x}px ${y}px)`] },
         {
-          // 700ms + ease-in-out: visible across the WHOLE viewport — no
-          // fast-start/slow-tail. Radius grows near-linearly, then settles.
-          duration: 700,
-          easing: 'cubic-bezier(0.4, 0, 0.2, 1)',
+          // ink-spread feel: quick start, long soft settle — visible across the viewport
+          duration: 650,
+          easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
           pseudoElement: '::view-transition-new(root)',
         },
       )
-    }).catch(() => {})
+    }).catch(() => {}).finally(() => { inFlight.current = false })
   }
 }
 
@@ -115,12 +176,20 @@ export default function App() {
     if (saved) return saved === 'dark'
     return window.matchMedia('(prefers-color-scheme: dark)').matches
   })
-  const handleToggleDark = useThemeTransition(setDark)
+  const [fallbackWave, setFallbackWave] = useState<{ x: number; y: number; dark: boolean } | null>(null)
+  // C3: browsers without View Transitions get the branded ThemeWave reveal
+  const handleToggleDark = useThemeTransition(setDark, (x, y, next) => {
+    setDark(next)
+    setFallbackWave({ x, y, dark: next })
+  })
 
   useEffect(() => {
     const root = document.documentElement
     root.classList.toggle('dark', dark)
     localStorage.setItem('folio-theme', dark ? 'dark' : 'light')
+    // B3: keep mobile browser chrome in sync with the app theme
+    document.querySelector('meta[name="theme-color"]')
+      ?.setAttribute('content', dark ? '#17130e' : '#faf7f2')
   }, [dark])
 
   // memoize rendered page node — avoids re-creating on unrelated state changes
@@ -133,16 +202,28 @@ export default function App() {
         rotate: <RotateTool />,
         compress: <CompressTool />,
       }
-      return <Suspense fallback={<ToolFallback />}>{map[id]}</Suspense>
+      return (
+        <RouteErrorBoundary resetKey={route}>
+          <Suspense fallback={<ToolFallback />}>{map[id]}</Suspense>
+        </RouteErrorBoundary>
+      )
     }
     if (isAbout) return <About />
-    return <Home />
-  }, [id, isTool, isAbout])
+    return (
+      <RouteErrorBoundary resetKey={route}>
+        <Home />
+      </RouteErrorBoundary>
+    )
+  }, [id, isTool, isAbout, route])
 
   return (
-    <div className="min-h-screen flex flex-col pb-[76px] sm:pb-0">
-      <style>{VT_CSS}</style>
-      <ScrollProgress />
+    <MotionConfig reducedMotion="user">
+      <div className="min-h-screen flex flex-col pb-[76px] sm:pb-0">
+        <style>{VT_CSS}</style>
+        <ScrollProgress />
+        {fallbackWave && (
+          <ThemeWave x={fallbackWave.x} y={fallbackWave.y} dark={fallbackWave.dark} onDone={() => setFallbackWave(null)} />
+        )}
 
       {/* Header — no redundant back-link inside tools (they have their own); shows brand + theme only */}
       <Header dark={dark} onToggleDark={handleToggleDark} />
@@ -162,7 +243,8 @@ export default function App() {
 
       <Footer />
       {!isHome && isTool && <MobileNav route={route} />}
-    </div>
+      </div>
+    </MotionConfig>
   )
 }
 
@@ -230,7 +312,7 @@ function Header({ dark, onToggleDark }: { dark: boolean; onToggleDark: (e?: Reac
                 initial={{ rotate: -30, opacity: 0, scale: 0.8 }}
                 animate={{ rotate: 0, opacity: 1, scale: 1 }}
                 exit={{ rotate: 30, opacity: 0, scale: 0.8 }}
-                transition={{ duration: 0.2 }}
+                transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
               >
                 {dark ? <SunIcon /> : <MoonIcon />}
               </motion.span>

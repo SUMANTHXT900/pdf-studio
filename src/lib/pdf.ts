@@ -118,6 +118,14 @@ function createCanvas(w: number, h: number): { canvas: HTMLCanvasElement | Offsc
   }
 }
 
+/** Compute a render scale that targets a specific on-screen pixel width,
+ *  accounting for device pixel ratio, without ever exceeding a sane ceiling. */
+function scaleForTargetWidth(nativeWidthPt: number, targetCssWidthPx: number, maxScale = 2): number {
+  const dpr = Math.min(2, Math.max(1, window.devicePixelRatio || 1))
+  const targetPx = targetCssWidthPx * dpr
+  return Math.max(0.2, Math.min(maxScale, targetPx / nativeWidthPt))
+}
+
 export async function renderThumb(
   buffer: ArrayBuffer,
   pageNum: number,
@@ -174,8 +182,12 @@ export async function renderPageFullRes(buffer: ArrayBuffer, pageNum: number): P
   const doc = await pdfjsLib.getDocument({ data: new Uint8Array(buffer.slice(0)) }).promise
   try {
     const page = await doc.getPage(pageNum)
-    const dpr = Math.min(2.5, Math.max(1, window.devicePixelRatio || 1))
-    const viewport = page.getViewport({ scale: 2 * dpr })
+    const base = page.getViewport({ scale: 1 })
+    const dpr = Math.min(2, Math.max(1, window.devicePixelRatio || 1))
+    // ~1.6x page size is sharp for a full-screen modal; cap absolute canvas width
+    const MAX_CANVAS_W = 1800
+    const scale = Math.min(1.6 * dpr, MAX_CANVAS_W / base.width)
+    const viewport = page.getViewport({ scale })
     const w = Math.max(1, Math.floor(viewport.width))
     const h = Math.max(1, Math.floor(viewport.height))
     const canvas = document.createElement('canvas')
@@ -193,31 +205,110 @@ export async function renderPageFullRes(buffer: ArrayBuffer, pageNum: number): P
 }
 
 /**
+ * ThumbSession — keeps ONE pdfjs document open and renders ranges on demand.
+ * Huge PDFs (1000+ pages) render only what the grid needs, instantly;
+ * further ranges stream on demand without ever re-parsing the buffer.
+ */
+export class ThumbSession {
+  private doc: pdfjsLib.PDFDocumentProxy | null = null
+  private targetWidthPx: number
+
+  constructor(private buffer: ArrayBuffer, targetWidthPx = 240) {
+    this.targetWidthPx = targetWidthPx
+  }
+
+  async open(): Promise<void> {
+    if (!this.doc) {
+      this.doc = await pdfjsLib.getDocument({ data: new Uint8Array(this.buffer.slice(0)) }).promise
+    }
+  }
+
+  get numPages(): number {
+    return this.doc?.numPages ?? 0
+  }
+
+  /** Render 1-indexed inclusive range; returns map page->dataURL. */
+  async range(start: number, end: number, signal?: AbortSignal): Promise<Map<number, string>> {
+    await this.open()
+    const out = new Map<number, string>()
+    for (let n = start; n <= end; n++) {
+      if (signal?.aborted) break
+      if (!this.doc || n > this.doc.numPages) break
+      const page = await this.doc!.getPage(n)
+      const base = page.getViewport({ scale: 1 })
+      const effScale = scaleForTargetWidth(base.width, this.targetWidthPx)
+      const viewport = page.getViewport({ scale: effScale })
+      const w = Math.max(1, Math.floor(viewport.width))
+      const h = Math.max(1, Math.floor(viewport.height))
+      let dataUrl = ''
+      if (typeof OffscreenCanvas !== 'undefined') {
+        try {
+          const oc = new OffscreenCanvas(w, h)
+          const ctx = oc.getContext('2d') as unknown as CanvasRenderingContext2D | null
+          if (ctx) {
+            ;(ctx as any).fillStyle = '#fff'
+            ctx.fillRect(0, 0, w, h)
+            await page.render({ canvasContext: ctx as any, viewport }).promise
+            if ('convertToBlob' in oc) {
+              const blob = await (oc as any).convertToBlob({ type: 'image/webp', quality: 0.85 })
+              dataUrl = await new Promise<string>((res) => {
+                const fr = new FileReader()
+                fr.onload = () => res(fr.result as string)
+                fr.readAsDataURL(blob)
+              })
+            }
+          }
+        } catch { /* DOM fallback */ }
+      }
+      if (!dataUrl) {
+        const canvas = document.createElement('canvas')
+        canvas.width = w
+        canvas.height = h
+        const ctx = canvas.getContext('2d')!
+        ctx.fillStyle = '#fff'
+        ctx.fillRect(0, 0, w, h)
+        await page.render({ canvasContext: ctx, viewport }).promise
+        dataUrl = canvas.toDataURL('image/jpeg', 0.85)
+      }
+      out.set(n, dataUrl)
+      if ((n - start) % 4 === 3) await new Promise<void>((r) => setTimeout(r, 0))
+    }
+    return out
+  }
+
+  async close(): Promise<void> {
+    try { await this.doc?.destroy() } catch { /* noop */ }
+    this.doc = null
+  }
+}
+
+/**
  * Series renderer — loads the pdfjs document ONCE, then renders every requested
  * page from that single instance, reporting progress after each small chunk.
- * This is the hot path for tool grids: re-parsing the buffer per batch made
- * large PDFs take ~1 min (v1.2.1 bug), because getDocument ran N/2 times.
+ * targetWidthPx = on-screen CSS width the thumb displays at; scale is computed
+ * per-page (DPR-aware) so we render exactly enough pixels — no more.
  */
 export async function renderThumbSeries(
   buffer: ArrayBuffer,
   total: number,
-  scale = 0.8,
+  targetWidthPx = 240,
   signal?: AbortSignal,
   onChunk?: (map: Map<number, string>) => void,
+  startPage = 1,
 ): Promise<Map<number, string>> {
   const out = new Map<number, string>()
-  const dpr = Math.min(2, Math.max(1, window.devicePixelRatio || 1))
-  const effScale = scale * dpr
   const doc = await pdfjsLib.getDocument({ data: new Uint8Array(buffer.slice(0)) }).promise
   try {
     const CHUNK = 3
-    for (let start = 1; start <= total; start += CHUNK) {
+    for (let start = startPage; start <= total; start += CHUNK) {
       if (signal?.aborted) break
       const end = Math.min(start + CHUNK - 1, total)
       const chunk = new Map<number, string>()
       for (let n = start; n <= end; n++) {
         if (signal?.aborted) break
         const page = await doc.getPage(n)
+        const base = page.getViewport({ scale: 1 })
+        const effScale = scaleForTargetWidth(base.width, targetWidthPx)
         const viewport = page.getViewport({ scale: effScale })
         const w = Math.max(1, Math.floor(viewport.width))
         const h = Math.max(1, Math.floor(viewport.height))
@@ -455,16 +546,31 @@ export async function compressPdf(
       const base = page.getViewport({ scale: 1 })
       const scale = Math.min(1, targetWidth / base.width) // never upscale -> avoids growth
       const viewport = page.getViewport({ scale })
-      const canvas = document.createElement('canvas')
-      canvas.width = Math.floor(viewport.width)
-      canvas.height = Math.floor(viewport.height)
-      const ctx = canvas.getContext('2d')
-      if (!ctx) throw new Error('canvas unavailable')
-      ctx.fillStyle = '#fff'
-      ctx.fillRect(0, 0, canvas.width, canvas.height)
-      await page.render({ canvasContext: ctx, viewport }).promise
-      const jpeg = canvas.toDataURL('image/jpeg', quality)
-      const img = await outPdf.embedJpg(jpeg)
+      const w = Math.floor(viewport.width)
+      const h = Math.floor(viewport.height)
+
+      // OffscreenCanvas + arrayBuffer path — no blocking base64 round-trip
+      let bytes: Uint8Array
+      if (typeof OffscreenCanvas !== 'undefined') {
+        const oc = new OffscreenCanvas(w, h)
+        const ctx = oc.getContext('2d') as unknown as CanvasRenderingContext2D
+        ctx.fillStyle = '#fff'
+        ctx.fillRect(0, 0, w, h)
+        await page.render({ canvasContext: ctx as any, viewport }).promise
+        const blob = await (oc as any).convertToBlob({ type: 'image/jpeg', quality })
+        bytes = new Uint8Array(await (blob as Blob).arrayBuffer())
+      } else {
+        const canvas = document.createElement('canvas')
+        canvas.width = w
+        canvas.height = h
+        const ctx = canvas.getContext('2d')!
+        ctx.fillStyle = '#fff'
+        ctx.fillRect(0, 0, w, h)
+        await page.render({ canvasContext: ctx, viewport }).promise
+        bytes = Uint8Array.from(atob(canvas.toDataURL('image/jpeg', quality).split(',')[1]), (c) => c.charCodeAt(0))
+      }
+
+      const img = await outPdf.embedJpg(bytes)
       const p = outPdf.addPage([viewport.width, viewport.height])
       p.drawImage(img, { x: 0, y: 0, width: viewport.width, height: viewport.height })
       onProgress?.(i, total)
@@ -475,93 +581,4 @@ export async function compressPdf(
     await src.destroy()
   }
   return outPdf.save()
-}
-
-/* ---------- PDF → text (for docx) ---------- */
-export async function extractTextPerPage(
-  buffer: ArrayBuffer,
-): Promise<string[]> {
-  const doc = await pdfjsLib.getDocument({ data: new Uint8Array(buffer.slice(0)) }).promise
-  const pages: string[] = []
-  try {
-    for (let i = 1; i <= doc.numPages; i++) {
-      const page = await doc.getPage(i)
-      const content = await page.getTextContent()
-      let text = content.items
-        .map((it: any) => ('str' in it ? it.str : ''))
-        .join(' ')
-      pages.push(text.trim())
-    }
-  } finally {
-    await doc.destroy()
-  }
-  return pages
-}
-/* ---------- PDF → Word (.docx) ---------- */
-export async function pdfToDocx(buffer: ArrayBuffer, baseName: string): Promise<Blob> {
-  const { Document, Packer, Paragraph, TextRun, PageBreak, HeadingLevel } = await import('docx')
-  const pages = await extractTextPerPage(buffer)
-  const children: import('docx').Paragraph[] = []
-  pages.forEach((text, i) => {
-    if (i > 0) children.push(new Paragraph({ children: [new PageBreak()] }))
-    children.push(
-      new Paragraph({
-        heading: HeadingLevel.HEADING_2,
-        children: [new TextRun({ text: `Page ${i + 1}`, bold: true, color: '888888' })],
-      }),
-    )
-    const lines = text.split(/\s+/).join(' ').split('. ')
-    for (const line of lines) {
-      if (line.trim()) children.push(new Paragraph({ children: [new TextRun(line.trim() + '.')] }))
-    }
-  })
-  const doc = new Document({ sections: [{ children }] })
-  return Packer.toBlob(doc)
-}
-
-/* ---------- Word → PDF (mammoth to HTML → rasterize to PDF pages) ---------- */
-export async function wordToPdf(buffer: ArrayBuffer): Promise<Blob> {
-  const mammoth = await import('mammoth')
-  const { value: html } = await mammoth.convertToHtml({ arrayBuffer: buffer })
-  const PX_W = 794 // A4 at 96dpi
-  const PX_H = 1123
-  const holder = document.createElement('div')
-  holder.style.position = 'fixed'
-  holder.style.left = '-20000px'
-  holder.style.top = '0'
-  holder.style.width = `${PX_W}px`
-  holder.style.background = '#fff'
-  holder.style.color = '#222'
-  holder.style.padding = '48px'
-  holder.style.fontFamily = 'Georgia, serif'
-  holder.style.fontSize = '15px'
-  holder.style.lineHeight = '1.5'
-  holder.innerHTML = html
-  document.body.appendChild(holder)
-  try {
-    const { default: html2canvas } = await import('html2canvas')
-    const canvas = await html2canvas(holder, { backgroundColor: '#ffffff', scale: 1 })
-    // page through the tall canvas in A4-ish slices
-    const { PDFDocument } = await import('pdf-lib')
-    const out = await PDFDocument.create()
-    for (let y0 = 0; y0 < canvas.height; y0 += PX_H) {
-      const h = Math.min(PX_H, canvas.height - y0)
-      const slice = document.createElement('canvas')
-      slice.width = PX_W
-      slice.height = h
-      const sctx = slice.getContext('2d')!
-      sctx.fillStyle = '#fff'
-      sctx.fillRect(0, 0, PX_W, h)
-      sctx.drawImage(canvas, 0, y0, PX_W, h, 0, 0, PX_W, h)
-      const jpeg = slice.toDataURL('image/jpeg', 0.92)
-      const img = await out.embedJpg(jpeg)
-      const page = out.addPage([595, 842]) // A4 pt
-      const scale2 = 595 / PX_W
-      page.drawImage(img, { x: 0, y: 0, width: 595, height: h * scale2 })
-    }
-    const bytes = await out.save()
-    return new Blob([bytes as unknown as BlobPart], { type: 'application/pdf' })
-  } finally {
-    holder.remove()
-  }
 }

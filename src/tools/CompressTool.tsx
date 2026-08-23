@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ToolHeading, DropZone, FileChip, Button, Card, Progress, formatBytes } from '../components/ui'
 import { usePdfFiles } from '../hooks/usePdfFiles'
 import { compressPdf } from '../lib/pdf'
@@ -16,6 +16,10 @@ export default function CompressTool() {
   const [result, setResult] = useState<{ url: string; name: string; saved: number } | null>(null)
   const [note, setNote] = useState<string | null>(null)
   const [prog, setProg] = useState<{ done: number; total: number } | null>(null)
+  const resultUrlRef = useRef<string | null>(null)
+
+  // revoke previous result URL when replaced or on unmount (blob leak fix)
+  useEffect(() => () => { if (resultUrlRef.current) URL.revokeObjectURL(resultUrlRef.current) }, [])
 
   async function handleCompress() {
     if (!file) return
@@ -35,11 +39,13 @@ export default function CompressTool() {
         // Keep the original rather than shipping a larger file.
         const blob = new Blob([buf], { type: 'application/pdf' })
         const url = URL.createObjectURL(blob)
+        resultUrlRef.current = url
         setResult({ url, name: file.name.replace(/\.pdf$/i, '') + '-compressed.pdf', saved: 0 })
         setNote('This PDF is already compact (mostly text or well-optimized), so re-compressing would make it larger. Your original file is kept unchanged.')
       } else {
         const blob = new Blob([out as unknown as BlobPart], { type: 'application/pdf' })
         const url = URL.createObjectURL(blob)
+        resultUrlRef.current = url
         setResult({ url, name: file.name.replace(/\.pdf$/i, '') + '-compressed.pdf', saved: Math.round((1 - outBytes / inputBytes) * 100) })
       }
     } catch (e) {

@@ -59,12 +59,11 @@ export default function RearrangeTool() {
     let cancelled = false
     ;(async () => {
       const buf = file.data
-      const t = await load(buf)
-      if (!cancelled) setOrder(t.map((_, i) => i))
+      const t = await load(buf, PAGE_LIMIT)
+      if (!cancelled) setOrder(Array.from({ length: t.length }, (_, i) => i))
     })()
     return () => { cancelled = true }
   }, [file, load])
-
   const visibleOrder = useMemo(() => {
     if (order.length <= 30 || showAll) return order
     return order.slice(0, PAGE_LIMIT)
@@ -135,8 +134,8 @@ export default function RearrangeTool() {
                 ))}
               </Reorder.Group>
               {hiddenCount > 0 && (
-                <button onClick={() => setShowAll(true)} className="mt-3 w-full rounded-xl border-2 border-dashed border-paper-300 dark:border-ink-700 py-3 text-sm text-ink-500 hover:border-brass-400 hover:text-brass-600 transition-colors">
-                  Show {hiddenCount} more pages
+                <button onClick={() => { setShowAll(true); if (file) void load(file.data) }} className="mt-3 w-full rounded-xl border-2 border-dashed border-paper-300 dark:border-ink-700 py-3 text-sm text-ink-500 hover:border-brass-400 hover:text-brass-600 transition-colors">
+                  {thumbs.filter(Boolean).length < order.length ? `Load & show ${Math.min(hiddenCount, 48)} more of ${hiddenCount}` : `Show ${hiddenCount} more pages`}
                 </button>
               )}
               {hiddenCount === 0 && order.length > 30 && showAll && (

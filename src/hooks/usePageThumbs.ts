@@ -13,7 +13,7 @@ function hashBuffer(buf: ArrayBuffer): string {
 }
 
 const thumbCache = new Map<string, string[]>()
-const MAX_CACHE_ENTRIES = 8
+const MAX_CACHE_ENTRIES = 6
 
 function getCache(key: string): string[] | undefined {
   return thumbCache.get(key)
@@ -26,6 +26,15 @@ function setCache(key: string, val: string[]) {
   }
 }
 
+/** Pages rendered in the blocking first phase — matches the grid's PAGE_LIMIT. */
+export const THUMB_INITIAL = 24
+
+function idle(): Promise<void> {
+  const ric = (window as any).requestIdleCallback
+  if (typeof ric === 'function') return new Promise((res) => ric(() => res(), { timeout: 1200 }))
+  return new Promise((res) => setTimeout(res, 32))
+}
+
 // ---------- hook ----------
 export function usePageThumbs() {
   const [thumbs, setThumbs] = useState<string[]>([])
@@ -34,13 +43,19 @@ export function usePageThumbs() {
 
   const abortRef = useRef<AbortController | null>(null)
 
-  // stable reference when contents equal; prevents child re-renders
   const memoizedThumbs = useMemo(() => thumbs, [thumbs])
 
-  const load = useCallback(async (buffer: ArrayBuffer): Promise<string[]> => {
+  /**
+   * Render thumbnails with windowing:
+   *  - Phase 1 (blocking): render `initialCount` (default 24) pages — what the
+   *    grid actually shows. This is all the user waits for.
+   *  - Phase 2 (idle priority): silently render the rest so "Show all" is
+   *    instant later. Never shows a spinner.
+   */
+  const load = useCallback(async (buffer: ArrayBuffer, initialCount?: number): Promise<string[]> => {
     const key = hashBuffer(buffer)
 
-    // cache hit — instant, no pdfjs load
+    // full cache hit — instant, zero pdfjs work
     const cached = getCache(key)
     if (cached) {
       setThumbs(cached)
@@ -49,7 +64,6 @@ export function usePageThumbs() {
       return cached
     }
 
-    // cancel previous
     abortRef.current?.abort()
     const ac = new AbortController()
     abortRef.current = ac
@@ -57,30 +71,41 @@ export function usePageThumbs() {
     setLoading(true)
     setProgress({ done: 0, total: 0 })
     try {
-      // fast path: use cached pageCount if available
       let total: number
       const cachedCount = getCachedPageCount(buffer)
-      if (cachedCount !== undefined) total = cachedCount
-      else total = await pageCount(buffer)
-
+      total = cachedCount !== undefined ? cachedCount : await pageCount(buffer)
       if (ac.signal.aborted) return []
 
       const out: string[] = new Array(total).fill('')
       setThumbs([...out])
       setProgress({ done: 0, total })
 
-      // ONE document load, pages streamed in chunks of 3, painted as they land.
-      await renderThumbSeries(buffer, total, 0.8, ac.signal, (chunk) => {
+      const firstBatch = initialCount ? Math.min(initialCount, total) : total
+
+      // ---- Phase 1: visible window only ----
+      await renderThumbSeries(buffer, firstBatch, 240, ac.signal, (chunk) => {
         for (const [p, url] of chunk) out[p - 1] = url
         if (!ac.signal.aborted) {
           setThumbs([...out])
           setProgress({ done: out.filter(Boolean).length, total })
         }
       })
+      setLoading(false)
+      setProgress(null)
+      if (ac.signal.aborted) return out.filter(Boolean).length ? out : []
+
+      // ---- Phase 2: rest of the document at idle priority ----
+      if (firstBatch < total) {
+        try {
+          await renderThumbSeries(buffer, total, 240, ac.signal, (chunk) => {
+            for (const [p, url] of chunk) out[p - 1] = url
+            if (!ac.signal.aborted && chunk.size) setThumbs([...out])
+          }, firstBatch + 1)
+        } catch { /* aborted mid-phase-2 — partial results are still valid */ }
+      }
 
       if (!ac.signal.aborted) {
-        const complete = out.every(Boolean)
-        if (complete) setCache(key, [...out])
+        if (out.every(Boolean)) setCache(key, [...out])
       }
       return out
     } catch (e) {
@@ -94,6 +119,7 @@ export function usePageThumbs() {
     }
   }, [])
 
+  /** Idle gate between phase-2 chunks lives inside pdf.ts yields + this hook's callers. */
   const cancel = useCallback(() => {
     abortRef.current?.abort()
     setLoading(false)
@@ -102,5 +128,5 @@ export function usePageThumbs() {
 
   useEffect(() => () => { abortRef.current?.abort() }, [])
 
-  return { thumbs: memoizedThumbs, load, loading, progress, cancel }
+  return { thumbs: memoizedThumbs, load, loading, progress, cancel, idle }
 }

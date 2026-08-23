@@ -24,7 +24,7 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        globPatterns: ['**/*.{js,mjs,css,html,svg,png,woff2}'],
         maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
       },
     }),
@@ -33,7 +33,7 @@ export default defineConfig({
     __FOLIO_VERSION__: JSON.stringify(version),
   },
   optimizeDeps: {
-    include: ['pdfjs-dist', 'pdfjs-dist/build/pdf.worker.min.mjs', 'pdf-lib', 'docx', 'mammoth', 'html2canvas'],
+    include: ['pdfjs-dist', 'pdfjs-dist/build/pdf.worker.min.mjs', 'pdf-lib'],
   },
   worker: {
     format: 'es',
@@ -45,8 +45,6 @@ export default defineConfig({
         manualChunks(id) {
           if (id.includes('node_modules')) {
             if (id.includes('pdfjs-dist') || id.includes('pdf-lib')) return 'pdf'
-            if (id.includes('docx') || id.includes('mammoth')) return 'doc'
-            if (id.includes('html2canvas') || id.includes('jspdf')) return 'canvas'
             if (id.includes('framer-motion')) return 'motion'
             if (id.includes('react') || id.includes('react-dom')) return 'react-vendor'
           }

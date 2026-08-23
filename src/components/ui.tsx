@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { sharePdf } from '../lib/pdf'
 
@@ -302,8 +302,13 @@ export function StageLine({ stage }: { stage: string }) {
 /* Result banner: ALWAYS shows a real tappable "Save to device" anchor (works
    even where programmatic saves are blocked) + an optional Share button. */
 export function DoneBanner({ name, blob, shareable = false }: { name: string; blob?: Blob; shareable?: boolean }) {
-  const [url] = useState(() => (blob ? URL.createObjectURL(blob) : undefined))
+  const [url, setUrl] = useState<string | undefined>(() => (blob ? URL.createObjectURL(blob) : undefined))
   const [shared, setShared] = useState(false)
+
+  // revoke on unmount and whenever the url is replaced — prevents blob leaks
+  useEffect(() => {
+    return () => { if (url) URL.revokeObjectURL(url) }
+  }, [url])
   return (
     <motion.div
       initial={{ opacity: 0, y: 6, scale: 0.99 }}
