@@ -12,17 +12,13 @@
 
 <p align="center">
   <a href="https://dev.folio-pdf.pages.dev/" target="_blank" rel="noopener">
-    <img src="https://img.shields.io/badge/🧪_Live_Dev-dev.folio--pdf.pages.dev-d9902d?style=for-the-badge&logo=cloudflare&logoColor=white" alt="Dev preview" />
+    <img src="https://img.shields.io/badge/Live-dev.folio--pdf.pages.dev-d9902d?style=for-the-badge&logo=cloudflare&logoColor=white" alt="Live dev preview" />
   </a>
-  <a href="https://folio-pdf.pages.dev/" target="_blank" rel="noopener">
-    <img src="https://img.shields.io/badge/🚀_Production-folio--pdf.pages.dev-2563eb?style=for-the-badge&logo=cloudflare&logoColor=white" alt="Live demo" />
-  </a>
-  <img src="https://img.shields.io/badge/version-1.2.1-2563eb?style=for-the-badge" alt="Version" />
-  <img src="https://img.shields.io/badge/license-MIT-2563eb?style=for-the-badge" alt="License" />
+  <img src="https://img.shields.io/badge/version-1.2.2--dev-d9902d?style=for-the-badge" alt="Version" />
   <img src="https://img.shields.io/badge/privacy-100%25%20client--side-16a34a?style=for-the-badge" alt="Privacy" />
 </p>
 
-> **Branches:** `main` → production (https://folio-pdf.pages.dev) · `dev` → staging preview (https://dev.folio-pdf.pages.dev). The badge above on the `dev` branch points to the dev preview; on `main` it points to production.
+> **This is the `dev` branch** — staging preview. Production (`main`) lives at [folio-pdf.pages.dev](https://folio-pdf.pages.dev).
 
 ---
 

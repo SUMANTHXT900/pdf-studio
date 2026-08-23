@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { getCachedPageCount, pageCount, renderThumbsBatched } from '../lib/pdf'
+import { getCachedPageCount, pageCount, renderThumbSeries } from '../lib/pdf'
 
 // ---------- hash + global cache ----------
 function hashBuffer(buf: ArrayBuffer): string {
@@ -26,26 +26,15 @@ function setCache(key: string, val: string[]) {
   }
 }
 
-// ---------- idle helper ----------
-function idle(cb: () => void): void {
-  const ric: any = (window as any).requestIdleCallback
-  if (typeof ric === 'function') ric(cb, { timeout: 800 })
-  else setTimeout(cb, 64)
-}
-
-function idlePromise(): Promise<void> {
-  return new Promise<void>((res) => idle(() => res()))
-}
-
 // ---------- hook ----------
 export function usePageThumbs() {
   const [thumbs, setThumbs] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
 
   const abortRef = useRef<AbortController | null>(null)
-  const hashRef = useRef<string | null>(null)
 
-  // memoized thumbs — stable reference when contents equal; prevents child re-renders
+  // stable reference when contents equal; prevents child re-renders
   const memoizedThumbs = useMemo(() => thumbs, [thumbs])
 
   const load = useCallback(async (buffer: ArrayBuffer): Promise<string[]> => {
@@ -54,9 +43,9 @@ export function usePageThumbs() {
     // cache hit — instant, no pdfjs load
     const cached = getCache(key)
     if (cached) {
-      hashRef.current = key
       setThumbs(cached)
       setLoading(false)
+      setProgress(null)
       return cached
     }
 
@@ -64,11 +53,9 @@ export function usePageThumbs() {
     abortRef.current?.abort()
     const ac = new AbortController()
     abortRef.current = ac
-    hashRef.current = key
 
     setLoading(true)
-    setThumbs([])
-
+    setProgress({ done: 0, total: 0 })
     try {
       // fast path: use cached pageCount if available
       let total: number
@@ -80,67 +67,40 @@ export function usePageThumbs() {
 
       const out: string[] = new Array(total).fill('')
       setThumbs([...out])
+      setProgress({ done: 0, total })
 
-      // Render with concurrency 2, first pages eager, rest idle-scheduled
-      // For small docs (<=6) do all eagerly. For larger, first 6 eagerly then idle.
-      const EAGER = Math.min(total, 6)
-      const CONCURRENCY = 2
-
-      // helper: batched render with concurrency 2
-      async function renderRange(startPage: number, endPageExclusive: number) {
-        for (let s = startPage; s < endPageExclusive; s += CONCURRENCY) {
-          if (ac.signal.aborted) break
-          const pageNums: number[] = []
-          for (let k = 0; k < CONCURRENCY && s + k < endPageExclusive; k++) pageNums.push(s + k + 1) // 1-indexed
-          const batch = await renderThumbsBatched(buffer, pageNums, 0.4, ac.signal)
-          if (ac.signal.aborted) break
-          for (const [p, url] of batch) out[p - 1] = url
+      // ONE document load, pages streamed in chunks of 3, painted as they land.
+      await renderThumbSeries(buffer, total, 0.8, ac.signal, (chunk) => {
+        for (const [p, url] of chunk) out[p - 1] = url
+        if (!ac.signal.aborted) {
           setThumbs([...out])
-          // yield
-          await new Promise<void>((r) => setTimeout(r, 0))
+          setProgress({ done: out.filter(Boolean).length, total })
         }
-      }
-
-      await renderRange(0, EAGER)
-      if (ac.signal.aborted) return out
-
-      if (total > EAGER) {
-        // schedule remaining via idle to keep main thread snappy
-        for (let s = EAGER; s < total; s += CONCURRENCY) {
-          if (ac.signal.aborted) break
-          // idle gate per batch after first eager pages
-          await idlePromise()
-          if (ac.signal.aborted) break
-          const pageNums: number[] = []
-          for (let k = 0; k < CONCURRENCY && s + k < total; k++) pageNums.push(s + k + 1)
-          const batch = await renderThumbsBatched(buffer, pageNums, 0.4, ac.signal)
-          if (ac.signal.aborted) break
-          for (const [p, url] of batch) out[p - 1] = url
-          setThumbs([...out])
-        }
-      }
+      })
 
       if (!ac.signal.aborted) {
-        // only cache fully-rendered results (no holes)
         const complete = out.every(Boolean)
         if (complete) setCache(key, [...out])
       }
-
       return out
     } catch (e) {
       if ((e as any)?.name === 'AbortError') return []
       throw e
     } finally {
-      if (abortRef.current === ac) setLoading(false)
+      if (abortRef.current === ac) {
+        setLoading(false)
+        setProgress(null)
+      }
     }
   }, [])
 
   const cancel = useCallback(() => {
     abortRef.current?.abort()
     setLoading(false)
+    setProgress(null)
   }, [])
 
   useEffect(() => () => { abortRef.current?.abort() }, [])
 
-  return { thumbs: memoizedThumbs, load, loading, cancel }
+  return { thumbs: memoizedThumbs, load, loading, progress, cancel }
 }

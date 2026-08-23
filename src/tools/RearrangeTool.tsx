@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, memo, useCallback } from 'react'
 import { Reorder } from 'framer-motion'
-import { ToolHeading, DropZone, FileChip, Button, Spinner, Card } from '../components/ui'
+import { ToolHeading, DropZone, FileChip, Button, Spinner, Card, DoneBanner, Progress } from '../components/ui'
 import { usePdfFiles } from '../hooks/usePdfFiles'
 import { usePageThumbs } from '../hooks/usePageThumbs'
 import { reorderPages, renderPageFullRes } from '../lib/pdf'
@@ -30,7 +30,7 @@ const RearrangeRow = memo(function RearrangeRow({ pageIdx, pos, thumb, onMoveUp,
 export default function RearrangeTool() {
   const { files, setFiles, addFiles, error, busy, setBusy, setError } = usePdfFiles()
   const file = files[0] ?? null
-  const { thumbs, load, loading } = usePageThumbs()
+  const { thumbs, load, loading, progress } = usePageThumbs()
   const [order, setOrder] = useState<number[]>([])
   const [result, setResult] = useState<string | null>(null)
   const [viewer, setViewer] = useState<number | null>(null)
@@ -107,7 +107,12 @@ export default function RearrangeTool() {
           <FileChip name={file.name} size={file.size} onRemove={() => { setFiles([]); setResult(null) }} />
 
           {loading && (
-            <div className="flex items-center gap-2 text-sm text-ink-400"><Spinner /> Rendering page previews…</div>
+            <div className="flex flex-col items-center gap-1">
+              <div className="flex items-center gap-2 text-sm text-ink-400"><Spinner /> Rendering page previews…</div>
+              {progress && progress.total > 0 && progress.done < progress.total && (
+                <div className="w-full max-w-xs"><Progress value={(progress.done / progress.total) * 100} label={`${progress.done} of ${progress.total} pages`} /></div>
+              )}
+            </div>
           )}
 
           {!loading && order.length > 0 && (

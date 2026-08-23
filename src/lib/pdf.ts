@@ -193,61 +193,72 @@ export async function renderPageFullRes(buffer: ArrayBuffer, pageNum: number): P
 }
 
 /**
- * Batch render: reuses a single pdfjs doc for all pages — much faster than
- * calling renderThumb per page (which would load the doc N times).
- * Used by usePageThumbs.
+ * Series renderer — loads the pdfjs document ONCE, then renders every requested
+ * page from that single instance, reporting progress after each small chunk.
+ * This is the hot path for tool grids: re-parsing the buffer per batch made
+ * large PDFs take ~1 min (v1.2.1 bug), because getDocument ran N/2 times.
  */
-export async function renderThumbsBatched(
+export async function renderThumbSeries(
   buffer: ArrayBuffer,
-  pageNums: number[],
+  total: number,
   scale = 0.8,
   signal?: AbortSignal,
+  onChunk?: (map: Map<number, string>) => void,
 ): Promise<Map<number, string>> {
   const out = new Map<number, string>()
   const dpr = Math.min(2, Math.max(1, window.devicePixelRatio || 1))
   const effScale = scale * dpr
   const doc = await pdfjsLib.getDocument({ data: new Uint8Array(buffer.slice(0)) }).promise
   try {
-    for (const n of pageNums) {
+    const CHUNK = 3
+    for (let start = 1; start <= total; start += CHUNK) {
       if (signal?.aborted) break
-      const page = await doc.getPage(n)
-      const viewport = page.getViewport({ scale: effScale })
-      const w = Math.max(1, Math.floor(viewport.width))
-      const h = Math.max(1, Math.floor(viewport.height))
+      const end = Math.min(start + CHUNK - 1, total)
+      const chunk = new Map<number, string>()
+      for (let n = start; n <= end; n++) {
+        if (signal?.aborted) break
+        const page = await doc.getPage(n)
+        const viewport = page.getViewport({ scale: effScale })
+        const w = Math.max(1, Math.floor(viewport.width))
+        const h = Math.max(1, Math.floor(viewport.height))
 
-      let dataUrl = ''
-      if (typeof OffscreenCanvas !== 'undefined') {
-        try {
-          const oc = new OffscreenCanvas(w, h)
-          const ctx = oc.getContext('2d') as unknown as CanvasRenderingContext2D | null
-          if (ctx) {
-            ;(ctx as any).fillStyle = '#fff'
-            ctx.fillRect(0, 0, w, h)
-            await page.render({ canvasContext: ctx as any, viewport }).promise
-            if ('convertToBlob' in oc) {
-              const blob = await (oc as any).convertToBlob({ type: 'image/webp', quality: 0.85 })
-              dataUrl = await new Promise<string>((res) => {
-                const fr = new FileReader()
-                fr.onload = () => res(fr.result as string)
-                fr.readAsDataURL(blob)
-              })
+        let dataUrl = ''
+        // OffscreenCanvas fast path
+        if (typeof OffscreenCanvas !== 'undefined') {
+          try {
+            const oc = new OffscreenCanvas(w, h)
+            const ctx = oc.getContext('2d') as unknown as CanvasRenderingContext2D | null
+            if (ctx) {
+              ;(ctx as any).fillStyle = '#fff'
+              ctx.fillRect(0, 0, w, h)
+              await page.render({ canvasContext: ctx as any, viewport }).promise
+              if ('convertToBlob' in oc) {
+                const blob = await (oc as any).convertToBlob({ type: 'image/webp', quality: 0.85 })
+                dataUrl = await new Promise<string>((res) => {
+                  const fr = new FileReader()
+                  fr.onload = () => res(fr.result as string)
+                  fr.readAsDataURL(blob)
+                })
+              }
             }
-          }
-        } catch { /* fallback */ }
+          } catch { /* DOM fallback */ }
+        }
+        if (!dataUrl) {
+          const canvas = document.createElement('canvas')
+          canvas.width = w
+          canvas.height = h
+          const ctx = canvas.getContext('2d')!
+          ctx.fillStyle = '#fff'
+          ctx.fillRect(0, 0, w, h)
+          await page.render({ canvasContext: ctx, viewport }).promise
+          dataUrl = canvas.toDataURL('image/jpeg', 0.85)
+        }
+        chunk.set(n, dataUrl)
       }
-      if (!dataUrl) {
-        const canvas = document.createElement('canvas')
-        canvas.width = w
-        canvas.height = h
-        const ctx = canvas.getContext('2d')!
-        ctx.fillStyle = '#fff'
-        ctx.fillRect(0, 0, w, h)
-        await page.render({ canvasContext: ctx, viewport }).promise
-        dataUrl = canvas.toDataURL('image/jpeg', 0.85)
-      }
-      out.set(n, dataUrl)
-      // yield to main thread briefly so UI stays responsive
-      if (pageNums.length > 6) await new Promise<void>((r) => setTimeout(r, 0))
+      for (const [k, v] of chunk) out.set(k, v)
+      onChunk?.(chunk)
+      // brief yield so React can paint arriving thumbs without blocking input
+      await new Promise<void>((r) => setTimeout(r, 0))
     }
   } finally {
     await doc.destroy()

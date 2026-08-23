@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, memo, useCallback } from 'react'
-import { ToolHeading, DropZone, FileChip, Button, Spinner, Card, DoneBanner } from '../components/ui'
+import { ToolHeading, DropZone, FileChip, Button, Spinner, Card, DoneBanner, Progress } from '../components/ui'
 import { usePdfFiles } from '../hooks/usePdfFiles'
 import { usePageThumbs } from '../hooks/usePageThumbs'
 import { removePages, splitRanges } from '../lib/pdf'
@@ -30,7 +30,7 @@ const ThumbTile = memo(function ThumbTile({ src, index, kept, onToggle }: { src:
 export default function SplitTool() {
   const { files, setFiles, addFiles, error, busy, setBusy, setError } = usePdfFiles()
   const file = files[0] ?? null
-  const { thumbs, load, loading } = usePageThumbs()
+  const { thumbs, load, loading, progress } = usePageThumbs()
   const [count, setCount] = useState(0)
   const [keep, setKeep] = useState<boolean[]>([])
   const [mode, setMode] = useState<'pick' | 'ranges'>('pick')
@@ -137,7 +137,14 @@ export default function SplitTool() {
 
           {mode === 'pick' && (
             <>
-              {loading && <div className="flex items-center gap-2 text-sm text-ink-400 dark:text-ink-300"><Spinner /> Rendering pages…</div>}
+              {loading && (
+                <div className="flex flex-col items-center gap-1">
+                  <div className="flex items-center gap-2 text-sm text-ink-400 dark:text-ink-300"><Spinner /> Rendering pages…</div>
+                  {progress && progress.total > 0 && progress.done < progress.total && (
+                    <div className="w-full max-w-xs"><Progress value={(progress.done / progress.total) * 100} label={`${progress.done} of ${progress.total} pages`} /></div>
+                  )}
+                </div>
+              )}
               {!loading && (
                 <Card>
                   <div className="flex items-center justify-between mb-3">
