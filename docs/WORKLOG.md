@@ -357,3 +357,7 @@ Chronological record of meaningful development events. Each entry records object
 - **Evidence.** Phone (55 MB merge): staging 79 ms cold / 28 ms warm, engine ~40 ms. Laptop (792 MB / 9244 pages): staging 501 ms / 408 ms. Same-files-repeat already fast (115.45 s cold → 602 ms warm).
 - **Decision.** No P0.2 implementation: tens of ms where the user works; snapshot semantics stay free. Reopens on a real large-PDF-on-phone crash or staging >~500 ms on a used file. Open (non-blocking): 190x cold→warm engine gap unexplained.
 - **Docs.** PERFORMANCE.md finding 1 + P0 item 2 marked measured-and-shelved. Instrument commit stays LOCAL (unpushed) per user instruction.
+
+## 2026-09-27 — Staging instrument removed (P0.2 done, UI back to clean)
+
+- **Why.** Phone + laptop numbers shelved P0.2; the `Main-thread staging:` line served its purpose. Reverted instrument commit `8da95de` (code only); verdict + evidence stay recorded above. Baselines back to unit 272 / E2E 53/53.

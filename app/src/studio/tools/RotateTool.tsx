@@ -18,7 +18,6 @@ import {
   openStudioBytes,
   runStudioOperation,
   formatDurationMs,
-  stageMetaLine,
   studioShareAvailable,
   type StudioJob,
 } from '../services/folio';
@@ -161,7 +160,6 @@ export default function RotateTool() {
     setStage(null);
     let currentTemp: string | null = null;
     let totalDurationMs = 0;
-    let totalStagingMs = 0;
     let lastPageCount: number | null = null;
     let lastByteLength = 0;
     try {
@@ -225,7 +223,6 @@ export default function RotateTool() {
         }
         const first = out.outputs[0];
         totalDurationMs += out.durationMs;
-        totalStagingMs += out.stagingMs;
         lastPageCount = first.pageCount;
         lastByteLength = first.byteLength;
         if (gi < groups.length - 1) {
@@ -250,7 +247,6 @@ export default function RotateTool() {
             `${pages} pages`,
             `${formatBytes(lastByteLength)}`,
             `Completed in ${formatDurationMs(totalDurationMs)}`,
-            stageMetaLine(totalStagingMs),
           ]);
         }
       }

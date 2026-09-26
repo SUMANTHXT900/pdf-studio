@@ -282,15 +282,6 @@ export interface EngineExecution {
   completedAt: string;
   /** Authoritative engine duration (monotonic), milliseconds. */
   engineDurationMs: number;
-  /**
-   * Main-thread dispatch preparation wall time (input `slice()` copies +
-   * transfer setup inside the adapter pipeline), milliseconds. P0.2
-   * instrumentation: measurement only, never part of the worker protocol
-   * and never authoritative — `engineDurationMs` stays authoritative (D4).
-   * Absent (undefined) on executions settled before dispatch preparation
-   * ran (e.g. worker-init failure) and on mock executions.
-   */
-  dispatchStagingMs?: number;
   progress: number;
   result?: {
     summary: ResultSummary;

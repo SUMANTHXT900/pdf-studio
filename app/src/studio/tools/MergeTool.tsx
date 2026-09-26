@@ -16,7 +16,6 @@ import { usePdfFiles } from '../hooks/usePdfFiles';
 import {
   runStudioOperation,
   formatDurationMs,
-  stageMetaLine,
   studioShareAvailable,
   type StudioJob,
 } from '../services/folio';
@@ -90,7 +89,6 @@ export default function MergeTool() {
           : `${out.pageCount ?? 0} pages`,
         `${formatBytes(out.byteLength)}`,
         `Completed in ${formatDurationMs(result.durationMs)}`,
-        stageMetaLine(result.stagingMs),
       ]);
     } catch (e: unknown) {
       const code = e instanceof Error ? (e as { code?: string }).code : undefined;

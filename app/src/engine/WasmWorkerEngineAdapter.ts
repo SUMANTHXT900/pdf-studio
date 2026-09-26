@@ -52,21 +52,7 @@ interface WorkerJobRecord {
   operation: OperationId;
   startedAt: string;
   settled: boolean;
-  /** P0.2 instrument: dispatch-prep wall ms, attached at settle (see below). */
-  dispatchStagingMs?: number;
   resolve: (execution: EngineExecution) => void;
-}
-
-/** Monotonic wall clock for dispatch attribution (performance.now when available). */
-function nowMs(): number {
-  try {
-    if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
-      return performance.now();
-    }
-  } catch {
-    // Ignore — fall through to Date.now().
-  }
-  return Date.now();
 }
 
 const READY_TIMEOUT_MS = 60_000;
@@ -224,10 +210,6 @@ export class WasmWorkerEngineAdapter implements EngineAdapter {
       if (worker === null) {
         throw new Error('WASM worker unavailable after initialization');
       }
-      // P0.2 instrument: time input preparation (the per-run `slice()`
-      // copies for store-owned buffers + transfer setup). Worker init is
-      // deliberately excluded — it is one-time init, not per-run staging.
-      const stagingStart = nowMs();
       const inputs = request.inputs.map((input) => {
         if (
           input.transfer === true &&
@@ -256,7 +238,6 @@ export class WasmWorkerEngineAdapter implements EngineAdapter {
       worker.postMessage(message, {
         transfer: inputs.map((input) => input.buffer),
       });
-      record.dispatchStagingMs = nowMs() - stagingStart;
     } catch (error) {
       if (!record.settled) {
         this.sealFailed(
@@ -530,13 +511,6 @@ export class WasmWorkerEngineAdapter implements EngineAdapter {
       return;
     }
     record.settled = true;
-    // Single attach point for the P0.2 instrument: every settle path
-    // (completed / failed / cancelled) carries the dispatch-prep time when
-    // preparation ran. Executions settled before preparation (worker-init
-    // failure, crash, restart) report 0 — never undefined-vs-number ambiguity.
-    if (execution.dispatchStagingMs === undefined) {
-      execution.dispatchStagingMs = record.dispatchStagingMs ?? 0;
-    }
     record.resolve(execution);
     this.pruneSettledJobs();
   }

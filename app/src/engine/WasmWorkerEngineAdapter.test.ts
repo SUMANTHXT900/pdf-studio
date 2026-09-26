@@ -153,9 +153,6 @@ describe('WasmWorkerEngineAdapter', () => {
     expect(finished.jobId).toBe('wasm-1');
     expect(finished.engineJobId).toBe('job-7');
     expect(finished.engineDurationMs).toBe(4.5);
-    // P0.2 instrument: dispatch preparation (input copies + transfer
-    // setup) is timed on every settled execution, never negative.
-    expect(finished.dispatchStagingMs).toBeGreaterThanOrEqual(0);
     expect(finished.result?.summary).toMatchObject({ pageCount: 2, pdfVersion: '1.7' });
     expect(finished.simulated).toBe(false);
     expect(seen).toContain('lifecycle:job started');

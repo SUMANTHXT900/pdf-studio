@@ -210,7 +210,6 @@ export function buildImagesPdf(
     const totalPages = pageCount;
     const fractions = new Array<number>(plans.length).fill(0);
     let totalDurationMs = 0;
-    let totalStagingMs = 0;
     const reportShards = (): void => {
       if (onProgress === undefined) return;
       let weighted = 0;
@@ -264,7 +263,6 @@ export function buildImagesPdf(
     }
     for (const result of shardResults) {
       totalDurationMs += result.durationMs;
-      totalStagingMs += result.stagingMs;
     }
     reportShards();
 
@@ -305,11 +303,7 @@ export function buildImagesPdf(
       active.add(job);
       try {
         const merged = await job.done;
-        return {
-          ...merged,
-          durationMs: totalDurationMs + merged.durationMs,
-          stagingMs: totalStagingMs + merged.stagingMs,
-        };
+        return { ...merged, durationMs: totalDurationMs + merged.durationMs };
       } finally {
         active.delete(job);
         mergeJob = null;

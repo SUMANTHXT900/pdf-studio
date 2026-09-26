@@ -10,7 +10,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   encodeThumbCanvases,
   formatDurationMs,
-  stageMetaLine,
   studioDownload,
   studioStripExt,
   toStudioError,
@@ -69,19 +68,6 @@ describe('studioStripExt', () => {
     expect(studioStripExt('report.pdf')).toBe('report');
     expect(studioStripExt('UPPER.PDF')).toBe('UPPER');
     expect(studioStripExt('no-ext')).toBe('no-ext');
-  });
-});
-
-describe('stageMetaLine', () => {
-  it('renders the P0.2 instrument as whole milliseconds', () => {
-    expect(stageMetaLine(0)).toBe('Main-thread staging: 0 ms');
-    expect(stageMetaLine(12.4)).toBe('Main-thread staging: 12 ms');
-    expect(stageMetaLine(1830)).toBe('Main-thread staging: 1830 ms');
-  });
-
-  it('never renders NaN or negative values', () => {
-    expect(stageMetaLine(Number.NaN)).toBe('Main-thread staging: 0 ms');
-    expect(stageMetaLine(-5)).toBe('Main-thread staging: 0 ms');
   });
 });
 
