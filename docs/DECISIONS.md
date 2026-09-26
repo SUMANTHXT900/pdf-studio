@@ -146,6 +146,14 @@ Each entry records the decision, its reason, alternatives considered where known
 - **Consequences.** Upload fixture names change (`red-wide.png` → `red-wide.jpg`) — E2E updated; E2E drag coverage moves from dnd-kit keyboard to handle pointer-drag; unit count changes (pageDrag suite gone, reorder/PNG suites added).
 - **Status.** Decided, implemented, verified (unit 229, E2E 45/45 + 4 SKIP twice).
 
+## D23 — Usage-based Home ordering (local counts, hero follows the user)
+
+- **Decision.** Home records tool opens (counts + recency, `localStorage`, private-mode safe) and promotes the most-used tool to the hero card with the "Most used" badge; zero data → merge. Counts only, no PII, no network. Compress can never be hero (disabled). Card-tap recording only in v1 (direct-URL visits don't count — documented in code).
+- **Reason.** The "Most used" badge was hardcoded to Merge for every user — a static claim presenting as measurement.
+- **Alternatives considered.** Recording in the router (rejected: touches StudioApp routing for v1; card taps cover the measured claim).
+- **Consequences.** Grid order is now per-device state; E2E unaffected (asserts names, not order).
+- **Status.** Decided, implemented, verified (12 new tests, full suite green).
+
 ## D22 — P3 image-build sharding: parallel shards + ordered merge, small batches untouched
 
 - **Decision.** Batches ≥8 pages shard across K device-aware engine jobs (`2–3` by `hardwareConcurrency`, 256 MiB in-flight cap, one shard per page max), each a plain `pdf.images_to_pdf` call through unchanged orchestration, merged in order via temp studio docs (closed in `finally`); below 8 pages the historical single call runs byte-for-byte. Progress is aggregated honestly, cancellation reaches every in-flight job, failures fail honestly with no silent retry. `ExecutionStrategy::Parallel` stays documented-but-unselected (comment-only) so the frozen `OperationCapabilities` contract is untouched — the illusion is resolved by construction, not deletion.

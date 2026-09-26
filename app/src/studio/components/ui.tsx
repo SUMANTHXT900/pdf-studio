@@ -538,7 +538,7 @@ export function DoneBanner({
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-forest-600 dark:text-forest-300">{name}</p>
           <p className="text-xs text-forest-600/80 dark:text-forest-300/80 mt-0.5 break-all">
-            Ready — tap “Save to device” if it didn’t save automatically.
+            Ready — tap “Save to device” to save it again.
           </p>
         </div>
       </div>

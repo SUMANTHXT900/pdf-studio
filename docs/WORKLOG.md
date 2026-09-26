@@ -361,3 +361,10 @@ Chronological record of meaningful development events. Each entry records object
 ## 2026-09-27 — Staging instrument removed (P0.2 done, UI back to clean)
 
 - **Why.** Phone + laptop numbers shelved P0.2; the `Main-thread staging:` line served its purpose. Reverted instrument commit `8da95de` (code only); verdict + evidence stay recorded above. Baselines back to unit 272 / E2E 53/53.
+
+## 2026-09-27 — UX batch: usage ordering, copy truth-pass, update honesty (delegated, LOCAL ONLY unpushed)
+
+- **Workstreams (3 parallel, disjoint).** (1) Usage-based Home: `toolUsage.ts` (counts+recency, localStorage, 12 tests); hero + "Most used" badge follow the user (merge default); compress never hero; hero copy fixed (compress no longer listed as working). (2) Copy truth-pass: About fake v1.2.0/v2.0.0 entries deleted → one "Coming soon" card (no promises/dates) + Suggest-a-feature → GitHub issues/new; `No tracking` badge → `No uploads` (page-view telemetry exists); DoneBanner re-save copy fixed (nothing auto-saves anymore); CompressTool desc honest. E2E-referenced strings frozen throughout. (3) Update UX: banner navigates to About + auto-expands details while update waits; `applying` phase; literal log copy + real timestamps; 19 manager tests.
+- **Verification.** Typecheck/lint/format clean; unit 289; E2E **53/53 + 4 SKIP**.
+- **Docs.** DECISIONS.md D23, BUGS.md F-13 follow-up, STATUS.md baselines.
+- **Held.** LOCAL COMMIT ONLY — no GitHub push, no Cloudflare deploy. Ship on user go-ahead.

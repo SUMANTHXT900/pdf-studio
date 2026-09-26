@@ -27,7 +27,7 @@ export default function CompressTool() {
       <ToolHeading
         icon={<CompressIcon />}
         name="Compress"
-        desc="Shrink file size by re-rendering pages"
+        desc="Reserved for a future update — compression isn't available yet."
       />
 
       {!file && (

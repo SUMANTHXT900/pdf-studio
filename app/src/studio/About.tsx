@@ -50,27 +50,6 @@ const ENTRIES: Entry[] = [
       'Compress stays reserved for a future update.',
     ],
   },
-  {
-    version: 'v1.2.0',
-    date: 'planned',
-    title: 'Sign & annotate',
-    status: 'planned',
-    changes: [
-      'Draw/type e-signatures and place them on any page.',
-      'Form-fill overlay and text annotation.',
-      'Watermark & page-number stamps.',
-    ],
-  },
-  {
-    version: 'v2.0.0',
-    date: 'next',
-    title: 'Batch & OCR',
-    status: 'planned',
-    changes: [
-      'Batch queue — run Merge/Split/Rotate across dozens of files.',
-      'Local OCR for scanned PDFs (on-device, still private).',
-    ],
-  },
 ];
 
 const ease = [0.22, 1, 0.36, 1] as const;
@@ -78,6 +57,11 @@ const ease = [0.22, 1, 0.36, 1] as const;
 function UpdateCard() {
   const state = usePwaUpdate();
   const [showLog, setShowLog] = useState(false);
+  // Auto-expand while an update waits: the banner links here, so the pending
+  // version's evidence is visible on arrival. Reads updateAvailable directly —
+  // no extra snapshot field. While waiting, details stay open by design.
+  const expanded = showLog || state.updateAvailable;
+  const applying = state.phase === 'applying';
   return (
     <motion.section
       initial={{ opacity: 0, y: 12 }}
@@ -112,23 +96,24 @@ function UpdateCard() {
           <button
             type="button"
             onClick={() => updateManager.applyUpdate()}
-            className="rounded-xl bg-ink-900 dark:bg-paper-50 text-paper-50 dark:text-ink-900 px-4 py-2 text-sm font-medium shadow-sm hover:opacity-90 transition-opacity"
+            disabled={applying}
+            className="rounded-xl bg-ink-900 dark:bg-paper-50 text-paper-50 dark:text-ink-900 px-4 py-2 text-sm font-medium shadow-sm hover:opacity-90 transition-opacity disabled:cursor-wait disabled:opacity-70"
           >
-            Update now
+            {applying ? 'Installing…' : 'Update now'}
           </button>
         )}
         {state.log.length > 0 && (
           <button
             type="button"
             onClick={() => setShowLog((v) => !v)}
-            aria-expanded={showLog}
+            aria-expanded={expanded}
             className="text-xs text-ink-400 dark:text-ink-300 hover:text-ink-700 dark:hover:text-paper-100 transition-colors px-2 py-2"
           >
-            {showLog ? 'Hide details' : 'Details'}
+            {expanded ? 'Hide details' : 'Details'}
           </button>
         )}
       </div>
-      {showLog && state.log.length > 0 && (
+      {expanded && state.log.length > 0 && (
         <ol className="mt-3 space-y-1 rounded-xl bg-ink-900/[0.04] dark:bg-ink-950/60 p-3 font-mono text-[11px] leading-relaxed text-ink-500 dark:text-ink-300">
           {state.log.map((line, i) => (
             <li key={`${i}-${line.slice(0, 16)}`}>› {line}</li>
@@ -188,7 +173,7 @@ export default function About() {
               all.
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
-              {['Offline-first', 'No tracking', 'No accounts'].map((t) => (
+              {['Offline-first', 'No uploads', 'No accounts'].map((t) => (
                 <span
                   key={t}
                   className="inline-flex items-center rounded-full bg-forest-500/[0.09] dark:bg-forest-500/15 border border-forest-500/20 px-3 py-1 text-xs font-medium text-forest-600 dark:text-forest-300"
@@ -388,6 +373,64 @@ export default function About() {
               </motion.li>
             ))}
           </ol>
+
+          {/* Coming soon — honest aspirations, not a roadmap promise.
+              Nothing below is committed, scheduled, or dated. */}
+          <motion.div
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.42, delay: 0.12 + ENTRIES.length * 0.07, ease }}
+            className="mt-6 rounded-2xl border border-dashed border-paper-300/70 dark:border-ink-700/80 bg-paper-50/50 dark:bg-ink-800/30 p-5 shadow-soft"
+          >
+            <span className="text-[10px] font-medium uppercase tracking-wider rounded-full px-2 py-0.5 border border-ink-400/40 dark:border-ink-500/50 text-ink-400 dark:text-ink-300">
+              Coming soon
+            </span>
+            <h3 className="font-display text-lg font-semibold tracking-tight text-ink-900 dark:text-paper-100 mt-2.5">
+              Ideas under consideration
+            </h3>
+            <ul className="mt-2.5 space-y-1.5">
+              {[
+                'Compress — smaller files, still fully on-device.',
+                'Easier sharing and lightweight annotation ideas.',
+              ].map((c) => (
+                <li
+                  key={c.slice(0, 24)}
+                  className="flex gap-2.5 text-sm text-ink-500 dark:text-ink-300 leading-relaxed"
+                >
+                  <span
+                    aria-hidden
+                    className="mt-[7px] w-1 h-1 rounded-full bg-brass-500/60 shrink-0"
+                  />
+                  <span className="text-pretty">{c}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-3 text-xs text-ink-400 dark:text-ink-300 leading-relaxed">
+              Nothing here is promised, scheduled, or dated — these are directions being explored,
+              not commitments.
+            </p>
+            <a
+              href="https://github.com/SUMANTHXT900/folio/issues/new"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 inline-flex items-center gap-2 rounded-xl border border-paper-300 dark:border-ink-700 px-4 py-2 text-sm font-medium text-ink-700 dark:text-paper-100 transition-colors hover:bg-paper-200 dark:hover:bg-ink-700"
+            >
+              Suggest a feature
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <path d="M7 17 17 7M9 7h8v8" />
+              </svg>
+            </a>
+          </motion.div>
         </motion.section>
       </div>
 

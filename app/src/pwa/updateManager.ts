@@ -22,6 +22,7 @@ export type UpdatePhase =
   | 'unsupported'
   | 'idle'
   | 'checking'
+  | 'applying'
   | 'update-available'
   | 'up-to-date'
   | 'offline'
@@ -131,6 +132,8 @@ export function statusTextFor(phase: UpdatePhase): string {
       return 'Tap Check for updates to verify.';
     case 'checking':
       return 'Checking for updates…';
+    case 'applying':
+      return 'Installing update… Reloading.';
     case 'update-available':
       return 'A new version is ready.';
     case 'up-to-date':
@@ -165,7 +168,13 @@ export function createUpdateManager(options: UpdateManagerOptions = {}) {
   };
 
   const pushLog = (line: string) => {
-    log = [...log.slice(-(maxLog - 1)), line];
+    // Every line carries the local wall-clock time it was pushed, so the
+    // About details read as a real event log — because they are one.
+    const now = new Date();
+    const ts = [now.getHours(), now.getMinutes(), now.getSeconds()]
+      .map((n) => String(n).padStart(2, '0'))
+      .join(':');
+    log = [...log.slice(-(maxLog - 1)), `${ts} ${line}`];
   };
 
   const setPhase = (next: UpdatePhase) => {
@@ -191,7 +200,7 @@ export function createUpdateManager(options: UpdateManagerOptions = {}) {
 
   const onNeedRefresh = () => {
     updateAvailable = true;
-    pushLog('Update payload ready for installation.');
+    pushLog('Service worker reported a waiting update.');
     setPhase('update-available');
   };
 
@@ -241,15 +250,18 @@ export function createUpdateManager(options: UpdateManagerOptions = {}) {
     }
     checking = true;
     const gen = (checkGen += 1);
+    // Literal truth for the settle window label (e.g. 5000ms → "5s").
+    const secsValue = settleWaitMs / 1000;
+    const secsLabel = Number.isInteger(secsValue) ? `${secsValue}s` : `${secsValue.toFixed(1)}s`;
     if (manual) {
-      pushLog('Contacting edge server for a new version…');
+      pushLog('Re-fetching sw.js from this host to check for a new version…');
       setPhase('checking');
     } else {
       emit();
     }
     try {
       await reg.update();
-      if (manual) pushLog('Verifying worker integrity…');
+      if (manual) pushLog(`Waiting ${secsLabel} for the worker to answer…`);
       // The worker signals via onNeedRefresh; if nothing arrives within
       // the settle window the running version is current (SYNAPSE wait).
       const settled = await new Promise<boolean>((resolve) => {
@@ -273,7 +285,7 @@ export function createUpdateManager(options: UpdateManagerOptions = {}) {
       });
       if (checkGen !== gen) return;
       if (!settled && !updateAvailable && manual) {
-        pushLog('Hashes match — running the latest version.');
+        pushLog(`No new version answered within ${secsLabel} — still on the current version.`);
         setPhase('up-to-date');
       }
     } catch (error) {
@@ -293,6 +305,10 @@ export function createUpdateManager(options: UpdateManagerOptions = {}) {
   /** One-tap apply: activates the waiting worker and reloads into it. */
   const applyUpdate = () => {
     if (registrar === null) return;
+    // Visible phase first: updateSW(true) reloads the page, so this status
+    // shows only briefly — but the tap must acknowledge before the reload.
+    pushLog('Activating the waiting worker and reloading…');
+    setPhase('applying');
     void registrar.applyUpdate();
   };
 

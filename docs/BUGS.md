@@ -19,6 +19,7 @@ IDs are stable (`F-<n>`). "Resolved" entries stay recorded — they explain why 
 - **Root cause.** Nothing in the app ever called `registerSW` / listened for `onNeedRefresh`, so a waiting worker had no UI. Stale-chunk recovery (F-12) only fires after a lazy import already failed.
 - **Fix.** Update manager adapted from the SYNAPSE repo pattern (D16): silent launch check, global one-tap `UpdateBanner`, About "App updates" card (manual check + diagnostics log), localhost/LAN guard.
 - **Verification.** 14 manager unit tests (incl. snapshot-stability regression for `useSyncExternalStore`); canonical E2E 43/43 + 4 SKIP (new: About card checks and reports local status on dev, no stray banner).
+- **Follow-up 2026-09-27 (honesty + UX pass, D23 batch).** Banner now navigates to About (auto-expands details while an update waits) instead of a dead tap; `applyUpdate` shows an `applying` phase; log lines carry real timestamps and literal copy (`Re-fetching sw.js…`, `Waiting 5s for the worker to answer…`, `No new version answered within 5s…`) replacing embellished lines ("edge server", "worker integrity", "hashes match"). The mechanism was verified real: `registration.update()` re-fetches `sw.js`, `updateSW(true)` activates + reloads; no-request clicks trace to disabled-button state, the LAN guard, or DevTools filters.
 
 ### F-19 — Preview modal not viewport-anchored on tall lists (phone video report)
 

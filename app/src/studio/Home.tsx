@@ -1,6 +1,8 @@
 import { motion } from 'framer-motion';
+import { useState } from 'react';
 import type { CSSProperties } from 'react';
 import { TOOL_LIST } from './StudioApp';
+import { getMostUsedId, recordToolOpen } from './toolUsage';
 
 const ICONS: Record<string, React.ReactNode> = {
   merge: (
@@ -111,10 +113,13 @@ const ICONS: Record<string, React.ReactNode> = {
   ),
 };
 
-/* Bento layout: merge = hero card (2x2 on desktop), split tall, rest standard.
+/* Bento layout: the usage hero takes the large 2x2 slot on desktop, split
+   goes tall whenever it is NOT the hero, rest standard. When merge is the
+   hero (the zero-data default) this matches the original layout exactly.
    Mobile: single column, all full width — thumb-friendly. */
+const HERO_SPAN = 'col-span-2 sm:col-span-2 lg:col-span-2 lg:row-span-2';
 const BENTO: Record<string, string> = {
-  merge: 'col-span-2 sm:col-span-2 lg:col-span-2 lg:row-span-2',
+  merge: 'col-span-1 sm:col-span-1 lg:col-span-1',
   split: 'col-span-2 sm:col-span-1 lg:col-span-1 lg:row-span-2',
   rearrange: 'col-span-1 sm:col-span-1 lg:col-span-1',
   rotate: 'col-span-1 sm:col-span-1 lg:col-span-1',
@@ -128,7 +133,7 @@ const TAGLINES: Record<string, string> = {
   split: 'Pull out the pages you need, or carve a PDF by page ranges.',
   rearrange: 'Drag pages into the order that makes sense.',
   rotate: 'Turn pages upright again.',
-  compress: 'Shrink heavy files for email — pick your quality.',
+  compress: 'Reserved for a future update — not available yet.',
   metadata: 'Read and edit titles, authors, and dates.',
   images: 'Turn JPEG and PNG images into a PDF.',
 };
@@ -147,9 +152,20 @@ const cardV = {
   },
 };
 
+/* Compress is an engine Phase-2 placeholder (see CompressTool): its grid
+   card stays visible but disabled — it never records usage and can never
+   become the hero, which is picked from enabled tools only. */
+const DISABLED_IDS: ReadonlySet<string> = new Set(['compress']);
+
 export default function Home() {
-  const heroTool = TOOL_LIST.find((t) => t.id === 'merge')!;
-  const otherTools = TOOL_LIST.filter((t) => t.id !== 'merge');
+  // Usage-based hero: the most-opened enabled tool, merge with zero data.
+  // Read once per mount — navigating home remounts, so the hero is fresh.
+  const [heroId] = useState(() =>
+    getMostUsedId(TOOL_LIST.map((t) => t.id).filter((id) => !DISABLED_IDS.has(id))),
+  );
+  const heroTool =
+    TOOL_LIST.find((t) => t.id === heroId) ?? TOOL_LIST.find((t) => t.id === 'merge')!;
+  const otherTools = TOOL_LIST.filter((t) => t.id !== heroTool.id);
 
   return (
     <div className="py-6 sm:py-10 overflow-hidden">
@@ -186,7 +202,7 @@ export default function Home() {
           </h1>
 
           <p className="mt-4 text-[15px] sm:text-lg text-ink-500 dark:text-ink-300 leading-relaxed max-w-lg text-pretty">
-            Merge, split, rearrange, rotate and compress — processed entirely in your browser. Your
+            Merge, split, rearrange, rotate and more — processed entirely in your browser. Your
             documents never touch a server.
           </p>
         </motion.div>
@@ -236,25 +252,13 @@ export default function Home() {
       >
         {[heroTool, ...otherTools].map((tool) => {
           const Comp = ICONS[tool.id];
-          return (
-            <motion.a
-              key={tool.id}
-              href={`#/${tool.id}`}
-              variants={cardV}
-              whileHover={{ y: -4, transition: { duration: 0.22, ease: 'easeOut' } }}
-              whileTap={{ scale: 0.985 }}
-              onMouseMove={(e) => {
-                const el = e.currentTarget as HTMLElement;
-                const r = el.getBoundingClientRect();
-                el.style.setProperty('--mx', `${e.clientX - r.left}px`);
-                el.style.setProperty('--my', `${e.clientY - r.top}px`);
-              }}
-              style={{ '--mx': '50%', '--my': '30%' } as CSSProperties}
-              className={
-                'group relative overflow-hidden rounded-2xl border border-paper-300/70 dark:border-ink-700/90 bg-paper-50/95 dark:bg-ink-800/70 p-4 sm:p-6 shadow-soft hover:border-brass-400/50 hover:shadow-lg hover:shadow-brass-400/10 transition-colors flex flex-col justify-between min-h-[44vw] sm:min-h-0 ' +
-                (BENTO[tool.id] || '')
-              }
-            >
+          const isHero = tool.id === heroTool.id;
+          const disabled = DISABLED_IDS.has(tool.id);
+          const cardClass =
+            'group relative overflow-hidden rounded-2xl border border-paper-300/70 dark:border-ink-700/90 bg-paper-50/95 dark:bg-ink-800/70 p-4 sm:p-6 shadow-soft transition-colors flex flex-col justify-between min-h-[44vw] sm:min-h-0 ' +
+            (isHero ? HERO_SPAN : BENTO[tool.id] || '');
+          const cardBody = (
+            <>
               {/* mouse-following radial highlight — GPU only */}
               <span
                 aria-hidden
@@ -269,26 +273,30 @@ export default function Home() {
                 <div
                   className={
                     'rounded-xl bg-paper-200 dark:bg-ink-700 flex items-center justify-center text-ink-700 dark:text-paper-100 group-hover:bg-brass-400/15 group-hover:text-brass-600 dark:group-hover:text-brass-300 transition-colors duration-300 ' +
-                    (tool.id === 'merge' ? 'w-12 h-12' : 'w-11 h-11')
+                    (isHero ? 'w-12 h-12' : 'w-11 h-11')
                   }
                 >
                   {Comp}
                 </div>
-                {tool.id === 'merge' && (
+                {isHero ? (
                   <span className="inline-flex items-center gap-1 rounded-full bg-brass-400/[0.14] border border-brass-400/30 px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-brass-600 dark:text-brass-200 shadow-sm">
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
                       <path d="M12 2l2.9 6.26L21 9.27l-4.5 4.39L17.8 20 12 16.77 6.2 20l1.3-6.34L3 9.27l6.1-1.01L12 2z" />
                     </svg>
                     Most used
                   </span>
-                )}
+                ) : disabled ? (
+                  <span className="inline-flex items-center rounded-full bg-paper-200/80 dark:bg-ink-700/80 border border-paper-300 dark:border-ink-600 px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-ink-400 dark:text-ink-300">
+                    Soon
+                  </span>
+                ) : null}
               </div>
 
               <div className="relative mt-auto pt-6">
                 <h3
                   className={
                     'font-display font-semibold tracking-tight text-ink-900 dark:text-paper-100 ' +
-                    (tool.id === 'merge' ? 'text-xl sm:text-2xl' : 'text-base sm:text-lg')
+                    (isHero ? 'text-xl sm:text-2xl' : 'text-base sm:text-lg')
                   }
                 >
                   {tool.name}
@@ -300,6 +308,43 @@ export default function Home() {
 
               {/* bottom accent */}
               <span className="pointer-events-none absolute bottom-0 left-4 right-4 h-px bg-gradient-to-r from-transparent via-brass-400/0 to-transparent group-hover:via-brass-400/40 transition-all duration-500" />
+            </>
+          );
+          if (disabled) {
+            return (
+              <motion.div
+                key={tool.id}
+                variants={cardV}
+                aria-disabled="true"
+                title="Reserved for a future update"
+                className={cardClass + ' opacity-60 saturate-50 cursor-not-allowed'}
+              >
+                {cardBody}
+              </motion.div>
+            );
+          }
+          return (
+            <motion.a
+              key={tool.id}
+              href={`#/${tool.id}`}
+              // v1 limitation: only taps on these cards record usage —
+              // direct-URL and bookmark visits to a tool never count.
+              onClick={() => recordToolOpen(tool.id)}
+              variants={cardV}
+              whileHover={{ y: -4, transition: { duration: 0.22, ease: 'easeOut' } }}
+              whileTap={{ scale: 0.985 }}
+              onMouseMove={(e) => {
+                const el = e.currentTarget as HTMLElement;
+                const r = el.getBoundingClientRect();
+                el.style.setProperty('--mx', `${e.clientX - r.left}px`);
+                el.style.setProperty('--my', `${e.clientY - r.top}px`);
+              }}
+              style={{ '--mx': '50%', '--my': '30%' } as CSSProperties}
+              className={
+                cardClass + ' hover:border-brass-400/50 hover:shadow-lg hover:shadow-brass-400/10'
+              }
+            >
+              {cardBody}
             </motion.a>
           );
         })}

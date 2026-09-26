@@ -46,6 +46,7 @@ describe('statusTextFor', () => {
       'unsupported',
       'idle',
       'checking',
+      'applying',
       'update-available',
       'up-to-date',
       'offline',
@@ -201,5 +202,88 @@ describe('createUpdateManager', () => {
     await check;
     expect(manager.snapshot()).not.toBe(before);
     expect(manager.snapshot()).toBe(manager.snapshot());
+  });
+
+  it('prefixes every log line with the local timestamp (HH:MM:SS)', async () => {
+    const manager = createUpdateManager({
+      register: (h) => Promise.resolve(fakeRegistrar(h)),
+      env: () => onlineHost,
+      settleWaitMs: 1000,
+    });
+    const check = manager.checkForUpdates(true);
+    await vi.advanceTimersByTimeAsync(1500);
+    await check;
+    const { log } = manager.snapshot();
+    expect(log.length).toBeGreaterThan(0);
+    for (const line of log) {
+      expect(line).toMatch(/^\d{2}:\d{2}:\d{2} /);
+    }
+  });
+
+  it('writes literal log copy: sw.js re-fetch, settle wait, silent window', async () => {
+    const manager = createUpdateManager({
+      register: (h) => Promise.resolve(fakeRegistrar(h)),
+      env: () => onlineHost,
+      settleWaitMs: 5000,
+    });
+    const check = manager.checkForUpdates(true);
+    await vi.advanceTimersByTimeAsync(5500);
+    await check;
+    const text = manager.snapshot().log.join('\n');
+    expect(text).toMatch(/sw\.js/);
+    expect(text).toMatch(/Waiting 5s for the worker to answer/);
+    expect(text).toMatch(/No new version answered within 5s/);
+    expect(text).not.toMatch(/edge server/i);
+    expect(text).not.toMatch(/Verifying worker integrity/);
+    expect(text).not.toMatch(/Hashes match/);
+  });
+
+  it('applyUpdate sets a visible applying phase before delegating', async () => {
+    const applyUpdate = vi.fn();
+    const manager = createUpdateManager({
+      register: () => Promise.resolve({ update: () => Promise.resolve(), applyUpdate }),
+      env: () => onlineHost,
+      settleWaitMs: 100,
+    });
+    const check = manager.checkForUpdates(true);
+    await vi.advanceTimersByTimeAsync(300);
+    await check;
+    manager.applyUpdate();
+    expect(applyUpdate).toHaveBeenCalledTimes(1);
+    expect(manager.snapshot().phase).toBe('applying');
+    expect(manager.snapshot().statusText).toBe('Installing update… Reloading.');
+    expect(manager.snapshot().canCheck).toBe(false);
+    expect(manager.snapshot().log.join('\n')).toMatch(/Activating the waiting worker/);
+  });
+
+  it('applyUpdate without a registrar stays put (no crash, no phase change)', () => {
+    const manager = createUpdateManager({
+      register: () => Promise.reject(new Error('never')),
+      env: () => onlineHost,
+    });
+    expect(() => manager.applyUpdate()).not.toThrow();
+    expect(manager.snapshot().phase).toBe('unknown');
+  });
+
+  it('exposes updateAvailable for UpdateCard auto-expand (no extra snapshot field)', async () => {
+    let onNeedRefresh: (() => void) | undefined;
+    const manager = createUpdateManager({
+      register: (h) => {
+        onNeedRefresh = h.onNeedRefresh;
+        return Promise.resolve(fakeRegistrar(h));
+      },
+      env: () => onlineHost,
+      settleWaitMs: 5000,
+    });
+    expect(Object.keys(manager.snapshot()).sort()).toEqual(
+      ['canCheck', 'checking', 'log', 'phase', 'statusText', 'updateAvailable'].sort(),
+    );
+    const check = manager.checkForUpdates(true);
+    await vi.advanceTimersByTimeAsync(300);
+    onNeedRefresh?.();
+    await vi.advanceTimersByTimeAsync(300);
+    await check;
+    // UpdateCard reads this flag directly to auto-expand its details.
+    expect(manager.snapshot().updateAvailable).toBe(true);
   });
 });
