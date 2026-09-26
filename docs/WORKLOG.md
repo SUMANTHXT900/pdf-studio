@@ -368,3 +368,5 @@ Chronological record of meaningful development events. Each entry records object
 - **Verification.** Typecheck/lint/format clean; unit 289; E2E **53/53 + 4 SKIP**.
 - **Docs.** DECISIONS.md D23, BUGS.md F-13 follow-up, STATUS.md baselines.
 - **Held.** LOCAL COMMIT ONLY — no GitHub push, no Cloudflare deploy. Ship on user go-ahead.
+
+- **Deploy.** UX batch (usage ordering, copy truth-pass, update honesty) + P0.2 shelve docs shipped: GitHub `dev` + Cloudflare Pages `folio-pdf` branch `dev` (`https://dev.folio-pdf.pages.dev`). Staging instrument was reverted before shipping — it never reached any remote.
