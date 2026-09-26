@@ -351,3 +351,9 @@ Chronological record of meaningful development events. Each entry records object
 - **Work.** Adapter times dispatch prep (input `slice()` + transfer setup) into `EngineExecution.dispatchStagingMs` (single attach in `settle()`; 0 when prep never ran); `StudioResult.stagingMs` (always-on) + `stageMetaLine()`; all six tools append `Main-thread staging: N ms` after `Completed in …` (Rotate/Images sum across groups/shards); unit tests (stageMetaLine 2, adapter settle assertion, sharding sum); one E2E check (merge card shows the line).
 - **Verification.** Typecheck/lint/format clean; unit 274; E2E **54/54 + 4 SKIP**; production build clean.
 - **Held.** LOCAL COMMIT ONLY — nothing pushed to GitHub or Cloudflare. User tests the production `dist/` over LAN from their phone and reports staging vs engine numbers; then we decide P0.2 (proceed hybrid / shelve).
+
+## 2026-09-27 — P0.2 verdict: measured on real devices, SHELVED (no code)
+
+- **Evidence.** Phone (55 MB merge): staging 79 ms cold / 28 ms warm, engine ~40 ms. Laptop (792 MB / 9244 pages): staging 501 ms / 408 ms. Same-files-repeat already fast (115.45 s cold → 602 ms warm).
+- **Decision.** No P0.2 implementation: tens of ms where the user works; snapshot semantics stay free. Reopens on a real large-PDF-on-phone crash or staging >~500 ms on a used file. Open (non-blocking): 190x cold→warm engine gap unexplained.
+- **Docs.** PERFORMANCE.md finding 1 + P0 item 2 marked measured-and-shelved. Instrument commit stays LOCAL (unpushed) per user instruction.
