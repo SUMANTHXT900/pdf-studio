@@ -21,7 +21,7 @@ import {
   type ShardedImagesInput,
 } from './imageSharding';
 
-function studioResult(pageCount = 1, durationMs = 10): StudioResult {
+function studioResult(pageCount = 1, durationMs = 10, stagingMs = 2): StudioResult {
   return {
     summary: { pageCount } as unknown as StudioResult['summary'],
     outputs: [
@@ -33,6 +33,7 @@ function studioResult(pageCount = 1, durationMs = 10): StudioResult {
       },
     ],
     durationMs,
+    stagingMs,
   };
 }
 
@@ -267,6 +268,9 @@ describe('buildImagesPdf sharded path', () => {
     expect(seen.some((l) => l.startsWith('Shard 1 of 3'))).toBe(true);
     expect(seen.some((l) => l.startsWith('Merging 3 parts'))).toBe(true);
     expect(out.durationMs).toBeGreaterThan(0);
+    // P0.2 instrument: staging sums across shards + merge (fake results
+    // carry stagingMs 2 each: 3 shards + 1 merge).
+    expect(out.stagingMs).toBe(8);
   });
 
   it('fails honestly on a shard error: no fallback, siblings cancelled, temps cleaned', async () => {

@@ -18,6 +18,7 @@ import { usePageThumbs } from '../hooks/usePageThumbs';
 import {
   runStudioOperation,
   formatDurationMs,
+  stageMetaLine,
   studioShareAvailable,
   type StudioJob,
 } from '../services/folio';
@@ -262,6 +263,7 @@ export default function RearrangeTool() {
           : `${first.pageCount ?? order.length} pages`,
         `${formatBytes(first.byteLength)}`,
         `Completed in ${formatDurationMs(out.durationMs)}`,
+        stageMetaLine(out.stagingMs),
       ]);
     } catch (e) {
       jobRef.current = null;

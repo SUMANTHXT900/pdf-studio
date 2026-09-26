@@ -51,6 +51,13 @@ export interface StudioResult {
   outputs: StudioOutput[];
   durationMs: number;
   /**
+   * Main-thread dispatch preparation wall time (adapter input `slice()`
+   * copies + transfer setup), milliseconds. Always-on P0.2 instrument:
+   * the number the phone test reports next to the engine duration. The
+   * engine's `durationMs` remains the authoritative operation duration (D4).
+   */
+  stagingMs: number;
+  /**
    * App-side attribution spans (intake → staging → transfer → wait →
    * outputs; PERFORMANCE.md P4 item 16). DEV-only: present when
    * `import.meta.env.DEV`, absent in production builds. The engine's
@@ -163,6 +170,18 @@ export function formatDurationMs(ms: number): string {
   if (!Number.isFinite(ms) || ms < 0) return '0ms';
   if (ms < 1000) return `${Math.round(ms)}ms`;
   return `${(ms / 1000).toFixed(2)}s`;
+}
+
+/**
+ * Completion-meta line for the P0.2 instrument: the main-thread dispatch
+ * preparation time (input copies + transfer setup) next to the engine
+ * duration, e.g. `Main-thread staging: 12 ms`. Every tool appends this
+ * after its `Completed in …` line so the phone test reads both numbers
+ * off the same card.
+ */
+export function stageMetaLine(stagingMs: number): string {
+  if (!Number.isFinite(stagingMs) || stagingMs < 0) return 'Main-thread staging: 0 ms';
+  return `Main-thread staging: ${Math.round(stagingMs)} ms`;
 }
 
 /**
@@ -446,6 +465,7 @@ export function runStudioOperation(
         summary: engineResult.summary,
         outputs,
         durationMs: finished.engineDurationMs ?? 0,
+        stagingMs: finished.dispatchStagingMs ?? 0,
       };
       if (import.meta.env.DEV) {
         result.perfMarks = perfMarks;

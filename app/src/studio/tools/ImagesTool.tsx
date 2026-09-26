@@ -14,6 +14,7 @@ import { smartOutputName } from '../components/downloadNaming';
 import {
   releaseStagedBytes,
   formatDurationMs,
+  stageMetaLine,
   stageStudioBytes,
   studioShareAvailable,
   type StudioJob,
@@ -235,6 +236,7 @@ export default function ImagesTool() {
         `${imageCount} image${imageCount === 1 ? '' : 's'} → ${pageCount}-page PDF`,
         `${formatBytes(first.byteLength)}`,
         `Completed in ${formatDurationMs(out.durationMs)}`,
+        stageMetaLine(out.stagingMs),
       ]);
     } catch (e) {
       jobRef.current = null;

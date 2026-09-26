@@ -298,6 +298,13 @@ async function main() {
     });
     const merged = await waitForCapturedDownload(page, 300000);
     check('merge downloads a real PDF', merged !== null, merged ? merged.name : null);
+    // P0.2 instrument: every completion card shows the main-thread staging
+    // line next to the engine duration (the number the phone test reports).
+    check(
+      'merge completion shows main-thread staging',
+      await page.evaluate(() => document.body.innerText.includes('Main-thread staging:')),
+      null,
+    );
     check(
       'merge output is a PDF',
       merged !== null && merged.magic === '%PDF-',

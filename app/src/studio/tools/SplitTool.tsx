@@ -17,6 +17,7 @@ import { usePageThumbs } from '../hooks/usePageThumbs';
 import {
   runStudioOperation,
   formatDurationMs,
+  stageMetaLine,
   studioShareAvailable,
   type StudioJob,
 } from '../services/folio';
@@ -181,6 +182,7 @@ export default function SplitTool() {
             : null,
           `${formatBytes(first.byteLength)}`,
           `Completed in ${formatDurationMs(out.durationMs)}`,
+          stageMetaLine(out.stagingMs),
         ]);
       } else {
         const parsed = parseRanges(ranges);
@@ -215,6 +217,7 @@ export default function SplitTool() {
             ...partCounts,
             `${formatBytes(first.byteLength)}`,
             `Completed in ${formatDurationMs(out.durationMs)}`,
+            stageMetaLine(out.stagingMs),
           ]);
         } else {
           const parts = out.outputs.map((o, i) => {
@@ -230,6 +233,7 @@ export default function SplitTool() {
             ...partCounts,
             `${out.outputs.length} files ready — name them, then download`,
             `Completed in ${formatDurationMs(out.durationMs)}`,
+            stageMetaLine(out.stagingMs),
           ]);
         }
       }

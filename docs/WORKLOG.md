@@ -344,3 +344,10 @@ Chronological record of meaningful development events. Each entry records object
 - **Deploy.** PENDING (commit + push + Cloudflare `dev` after this entry).
 
 - **Deploy.** P3 + M4 docs shipped to Cloudflare Pages `folio-pdf` branch `dev` (`https://dev.folio-pdf.pages.dev`).
+
+## 2026-09-26 — P0.2 staging instrument (LOCAL ONLY, never deployed)
+
+- **Purpose.** Answer the P0.2 trade with real-phone numbers before touching binary ownership.
+- **Work.** Adapter times dispatch prep (input `slice()` + transfer setup) into `EngineExecution.dispatchStagingMs` (single attach in `settle()`; 0 when prep never ran); `StudioResult.stagingMs` (always-on) + `stageMetaLine()`; all six tools append `Main-thread staging: N ms` after `Completed in …` (Rotate/Images sum across groups/shards); unit tests (stageMetaLine 2, adapter settle assertion, sharding sum); one E2E check (merge card shows the line).
+- **Verification.** Typecheck/lint/format clean; unit 274; E2E **54/54 + 4 SKIP**; production build clean.
+- **Held.** LOCAL COMMIT ONLY — nothing pushed to GitHub or Cloudflare. User tests the production `dist/` over LAN from their phone and reports staging vs engine numbers; then we decide P0.2 (proceed hybrid / shelve).

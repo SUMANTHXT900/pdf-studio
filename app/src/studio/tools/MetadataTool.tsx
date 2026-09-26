@@ -19,6 +19,7 @@ import {
   openStudioBytes,
   runStudioOperation,
   formatDurationMs,
+  stageMetaLine,
   studioShareAvailable,
   type StudioJob,
 } from '../services/folio';
@@ -199,6 +200,7 @@ export default function MetadataTool() {
         summary !== undefined && 'pageCount' in summary ? `${summary.pageCount} pages` : null,
         `${formatBytes(first.byteLength)}`,
         `Completed in ${formatDurationMs(out.durationMs)}`,
+        stageMetaLine(out.stagingMs),
       ]);
       // Refresh the displayed properties from the written output.
       const temp = await openStudioBytes(`reread:${name}`, first.bytes);
